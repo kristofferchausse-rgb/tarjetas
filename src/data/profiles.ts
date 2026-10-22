@@ -72,6 +72,24 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
         url: 'mailto:sara.sazedi@sazediconsulting.com',
         category: 'Contacto'
       }
+    ],
+    testimonials: [
+      {
+        name: 'Roberto Méndez',
+        role: 'Director General',
+        company: 'Grupo Industrial Bajío',
+        comment: 'Gracias a la asesoría estratégica de Sara concretamos una alianza binacional que duplicó nuestra capacidad en menos de 6 meses.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80'
+      },
+      {
+        name: 'Dra. Elena Ramos',
+        role: 'Founder & CEO',
+        company: 'SaludConecta MX',
+        comment: 'Su visión de negocio y acompañamiento ejecutivo fueron determinantes para cerrar nuestra ronda seed con éxito.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
+      }
     ]
   },
   {
@@ -164,6 +182,24 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
         url: 'https://valenzuela-fiscal.mx',
         category: 'Web'
       }
+    ],
+    testimonials: [
+      {
+        name: 'Ing. Alejandro Morales',
+        role: 'Director de Finanzas',
+        company: 'Logística TransMéxico',
+        comment: 'Excelente reestructuración fiscal corporativa. Claridad jurídica total, blindaje ante SAT y atención inmediata.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'
+      },
+      {
+        name: 'Lic. Claudia Garza',
+        role: 'Consejera Patrimonial',
+        company: 'Family Office Monterrey',
+        comment: 'El protocolo sucesorio diseñado por la Mtra. Sofía aseguró la continuidad pacífica y ordenada del patrimonio familiar.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80'
+      }
     ]
   },
   {
@@ -255,6 +291,16 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
         url: 'https://tallerlumbre.mx',
         category: 'Web'
       }
+    ],
+    testimonials: [
+      {
+        name: 'Arq. Mariana De la Torre',
+        role: 'Directora de Diseño',
+        company: 'Estudio Arquitectura Guadalajara',
+        comment: 'Taller Lumbre fabricó las luminarias monumentales para nuestro hotel en Sayulita. Calidad de detalle impecable.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80'
+      }
     ]
   },
   {
@@ -337,6 +383,16 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
         icon: 'domain',
         url: 'https://logisticanorte.com.mx',
         category: 'Web'
+      }
+    ],
+    testimonials: [
+      {
+        name: 'Lic. Fernando Treviño',
+        role: 'VP Operaciones Cadena de Suministro',
+        company: 'Autopartes del Norte S.A.',
+        comment: 'Implementamos la automatización con AGVs de Cuauhtémoc y redujimos los tiempos de ciclo un 32% en el primer trimestre.',
+        stars: 5,
+        avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80'
       }
     ]
   }

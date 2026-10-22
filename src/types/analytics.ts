@@ -8,7 +8,10 @@ export type ActionEventType =
   | 'email_click'
   | 'calendar_click'
   | 'link_click'
-  | 'video_play';
+  | 'video_play'
+  | 'lead_capture'
+  | 'wallpaper_download'
+  | 'signature_copy';
 
 export interface CardStats {
   publicId: string;
@@ -22,7 +25,21 @@ export interface CardStats {
   calendarClicks: number;
   linkClicks: number;
   videoPlays: number;
+  leadsCaptured?: number;
   lastActive: string;
+}
+
+export interface CapturedLead {
+  id: string;
+  publicId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  company?: string;
+  message?: string;
+  timestamp: string;
+  status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado';
+  notes?: string;
 }
 
 export interface ActivityEvent {

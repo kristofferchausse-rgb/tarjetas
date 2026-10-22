@@ -30,10 +30,15 @@ import {
   Github,
   Sparkles,
   ArrowUpRight,
-  Share2
+  Share2,
+  Star,
+  Smartphone,
+  Award
 } from 'lucide-react';
 import { getViralSharePayload, AGENCY_NAME, AGENCY_URL } from '../utils/seo';
 import { LeadCaptureModal } from './LeadCaptureModal';
+import { WallpaperModal } from './WallpaperModal';
+import { EmailSignatureModal } from './EmailSignatureModal';
 import { LanguageSelector } from './FlagIcons';
 import { CardLanguage, CARD_TRANSLATIONS, SAMPLE_PROFILE_TRANSLATIONS } from '../utils/i18n';
 import { formatVideoEmbedUrl, getVideoThumbnail } from '../utils/video';
@@ -58,6 +63,8 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
   const currentTheme = activeTheme || profile.themeKey;
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [lang, setLang] = useState<CardLanguage>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -625,6 +632,61 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
           </div>
         )}
 
+        {/* Section F: Social Proof & Testimonials */}
+        {profile.testimonials && profile.testimonials.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-[11px] uppercase tracking-wider text-[#6d7a77] font-bold flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-[#00685f]" />
+                <span>{lang === 'en' ? 'Client Recommendations' : 'Testimonios & Recomendaciones'}</span>
+              </h2>
+              <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5">
+                ★ 5.0 Verificado
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {profile.testimonials.map((testi, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl bg-white border border-stone-200/90 shadow-2xs relative"
+                >
+                  <Quote className="w-5 h-5 text-stone-200 absolute top-3 right-3" />
+                  
+                  {/* Rating Stars */}
+                  <div className="flex items-center gap-0.5 mb-1.5 text-amber-400">
+                    {Array.from({ length: testi.stars || 5 }).map((_, sIdx) => (
+                      <Star key={sIdx} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
+
+                  <p className="text-[12px] sm:text-[13px] text-[#1a1c1c] font-medium leading-snug pr-4 italic">
+                    "{testi.comment}"
+                  </p>
+
+                  <div className="mt-2.5 flex items-center gap-2 pt-2 border-t border-stone-100">
+                    {testi.avatarUrl ? (
+                      <img
+                        src={testi.avatarUrl}
+                        alt={testi.name}
+                        className="w-6 h-6 rounded-full object-cover border border-stone-200"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-stone-100 text-stone-700 text-[10px] font-bold flex items-center justify-center">
+                        {testi.name.charAt(0)}
+                      </div>
+                    )}
+                    <div className="text-[11px]">
+                      <span className="font-bold text-[#1a1c1c] block leading-tight">{testi.name}</span>
+                      <span className="text-[10px] text-[#6d7a77]">{testi.role}{testi.company ? ` • ${testi.company}` : ''}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Connect & Share My Details Direct to Card Owner */}
         <div className="mt-6">
           <button
@@ -636,8 +698,36 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
           </button>
         </div>
 
+        {/* Executive Quick Toolkit Bar */}
+        <div className="mt-6 p-2.5 rounded-2xl bg-stone-100/90 border border-stone-200/90 flex items-center justify-around gap-2 text-center">
+          <button
+            onClick={() => setIsWallpaperModalOpen(true)}
+            className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-stone-50 text-stone-800 text-[11px] font-bold shadow-2xs border border-stone-200/80 flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:scale-95"
+            title="Generar fondo de pantalla con QR para tu celular"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-[#00685f]" />
+            <span>Fondo QR</span>
+          </button>
+          <button
+            onClick={() => setIsSignatureModalOpen(true)}
+            className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-stone-50 text-stone-800 text-[11px] font-bold shadow-2xs border border-stone-200/80 flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:scale-95"
+            title="Crear firma de correo para Gmail / Outlook"
+          >
+            <Mail className="w-3.5 h-3.5 text-[#00685f]" />
+            <span>Firma Email</span>
+          </button>
+          <button
+            onClick={onOpenQR}
+            className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-stone-50 text-stone-800 text-[11px] font-bold shadow-2xs border border-stone-200/80 flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:scale-95"
+            title="Código QR y vCard"
+          >
+            <QrCode className="w-3.5 h-3.5 text-[#00685f]" />
+            <span>Código QR</span>
+          </button>
+        </div>
+
         {/* Tribu Creativa QRO Viral Authority & WhatsApp Contact Badge */}
-        <div className="mt-6 p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-stone-900 to-slate-900 text-white text-center shadow-lg border border-white/10 relative overflow-hidden">
+        <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-stone-900 to-slate-900 text-white text-center shadow-lg border border-white/10 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-28 h-28 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-teal-400 mb-1.5">
             <Sparkles className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
@@ -712,6 +802,22 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
         profile={profile}
         onShowToast={onShowToast || (() => {})}
         lang={lang}
+      />
+
+      {/* Lockscreen Wallpaper Generator Modal */}
+      <WallpaperModal
+        isOpen={isWallpaperModalOpen}
+        onClose={() => setIsWallpaperModalOpen(false)}
+        profile={profile}
+        onShowToast={onShowToast || (() => {})}
+      />
+
+      {/* Email Signature Generator Modal */}
+      <EmailSignatureModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        profile={profile}
+        onShowToast={onShowToast || (() => {})}
       />
     </div>
   );

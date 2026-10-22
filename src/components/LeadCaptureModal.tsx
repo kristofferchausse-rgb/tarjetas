@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ParticipantProfile } from '../types/card';
 import { recordActivity } from '../utils/analytics';
 import { CardLanguage, CARD_TRANSLATIONS } from '../utils/i18n';
+import { saveLead } from '../services/leadService';
 import {
   X,
   UserCheck,
@@ -32,6 +33,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -40,24 +42,34 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) {
       onShowToast(lang === 'en' ? 'Please enter at least your name and phone number.' : 'Por favor escribe al menos tu nombre y teléfono.');
       return;
     }
 
-    // Record lead activity
+    // Persist lead to mini-CRM (Firestore + LocalStorage)
+    await saveLead({
+      publicId: profile.publicId,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      company: company.trim() || undefined,
+      message: message.trim() || undefined
+    });
+
+    // Record analytics event
     recordActivity(
       profile.publicId,
       profile.shortName,
-      'whatsapp_click',
-      `Contacto directo de ${name.trim()} (${phone.trim()})`
+      'lead_capture',
+      `Contacto recibido de ${name.trim()} (${phone.trim()})`
     );
 
     const waText = lang === 'en'
-      ? `Hello ${profile.name}! 👋\n\nI was viewing your Executive Digital Card and would like to connect with you:\n\n• Name: ${name.trim()}\n• Phone: ${phone.trim()}${company.trim() ? `\n• Company / Role: ${company.trim()}` : ''}${message.trim() ? `\n• Message: ${message.trim()}` : ''}\n\nLooking forward to speaking with you.`
-      : `¡Hola ${profile.name}! 👋\n\nEstuve revisando tu Tarjeta Digital Ejecutiva y me gustaría conectar contigo:\n\n• Nombre: ${name.trim()}\n• Teléfono: ${phone.trim()}${company.trim() ? `\n• Empresa / Cargo: ${company.trim()}` : ''}${message.trim() ? `\n• Mensaje: ${message.trim()}` : ''}\n\nQuedo a tu disposición para conversar.`;
+      ? `Hello ${profile.name}! 👋\n\nI was viewing your Executive Digital Card and would like to connect with you:\n\n• Name: ${name.trim()}\n• Phone: ${phone.trim()}${email.trim() ? `\n• Email: ${email.trim()}` : ''}${company.trim() ? `\n• Company / Role: ${company.trim()}` : ''}${message.trim() ? `\n• Message: ${message.trim()}` : ''}\n\nLooking forward to speaking with you.`
+      : `¡Hola ${profile.name}! 👋\n\nEstuve revisando tu Tarjeta Digital Ejecutiva y me gustaría conectar contigo:\n\n• Nombre: ${name.trim()}\n• Teléfono: ${phone.trim()}${email.trim() ? `\n• Email: ${email.trim()}` : ''}${company.trim() ? `\n• Empresa / Cargo: ${company.trim()}` : ''}${message.trim() ? `\n• Mensaje: ${message.trim()}` : ''}\n\nQuedo a tu disposición para conversar.`;
 
     const cleanRecipientPhone = profile.phone.replace(/[^0-9]/g, '');
     const waUrl = cleanRecipientPhone
@@ -67,11 +79,12 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
     setIsSuccess(true);
     setTimeout(() => {
       window.open(waUrl, '_blank', 'noopener,noreferrer');
-      onShowToast('Abriendo WhatsApp para enviar tus datos...');
+      onShowToast('¡Datos guardados! Abriendo WhatsApp para conectar...');
       onClose();
       setIsSuccess(false);
       setName('');
       setPhone('');
+      setEmail('');
       setCompany('');
       setMessage('');
     }, 600);
@@ -140,6 +153,22 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
                   className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-[#00685f] focus:ring-1 focus:ring-teal-100 placeholder:text-stone-400"
                 />
                 <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                Correo Electrónico (Opcional)
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  placeholder="ejemplo@correo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-[#00685f] focus:ring-1 focus:ring-teal-100 placeholder:text-stone-400"
+                />
+                <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
               </div>
             </div>
 

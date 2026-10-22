@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink } from '../types/card';
+import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink, CardTestimonial } from '../types/card';
 import {
   X,
   Save,
@@ -21,7 +21,10 @@ import {
   ExternalLink,
   Instagram,
   Play,
-  ArrowRight
+  ArrowRight,
+  Award,
+  Star,
+  Quote
 } from 'lucide-react';
 import { formatVideoEmbedUrl, getVideoThumbnail, getYouTubeId } from '../utils/video';
 
@@ -47,7 +50,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   canDelete = true
 }) => {
   const [formData, setFormData] = useState<ParticipantProfile>({ ...profile });
-  const [activeTab, setActiveTab] = useState<'general' | 'multimedia' | 'video' | 'servicios' | 'enlaces' | 'redes'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'multimedia' | 'video' | 'servicios' | 'enlaces' | 'testimonios' | 'redes'>('general');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Synchronize form data whenever profile changes or modal opens
@@ -146,6 +149,39 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       links: (prev.links || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleTestimonialChange = (index: number, field: keyof CardTestimonial, value: any) => {
+    setFormData((prev) => {
+      const nextTestis = [...(prev.testimonials || [])];
+      nextTestis[index] = { ...nextTestis[index], [field]: value };
+      return { ...prev, testimonials: nextTestis };
+    });
+  };
+
+  const handleAddTestimonial = () => {
+    if ((formData.testimonials || []).length < 3) {
+      setFormData((prev) => ({
+        ...prev,
+        testimonials: [
+          ...(prev.testimonials || []),
+          {
+            name: 'Cliente o Aliado',
+            role: 'Director General',
+            company: 'Empresa',
+            comment: 'Excelente profesional y servicio de primer nivel con resultados tangibles.',
+            stars: 5
+          }
+        ]
+      }));
+    }
+  };
+
+  const handleRemoveTestimonial = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      testimonials: (prev.testimonials || []).filter((_, i) => i !== index)
     }));
   };
 
@@ -256,6 +292,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           >
             <Link2 className="w-3.5 h-3.5" />
             <span>Enlaces Destacados ({(formData.links || []).length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('testimonios')}
+            className={`py-3 px-3.5 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'testimonios'
+                ? 'border-[#00685f] text-[#00685f]'
+                : 'border-transparent text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>Testimonios ({(formData.testimonials || []).length})</span>
           </button>
           <button
             type="button"
@@ -825,6 +873,170 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB: Testimonios & Casos de Éxito */}
+          {activeTab === 'testimonios' && (
+            <div className="space-y-5">
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex items-start gap-3">
+                <Award className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs leading-relaxed">
+                  <span className="font-bold block text-amber-900">Prueba Social & Testimonios Clave</span>
+                  Los testimonios reales aumentan la tasa de contacto y guardado de agenda hasta un 270%. Agrega hasta 3 recomendaciones breves con estrellas, cargo y empresa.
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-stone-600">
+                  Testimonios destacados ({(formData.testimonials || []).length}/3)
+                </span>
+                {(formData.testimonials || []).length < 3 && (
+                  <button
+                    type="button"
+                    onClick={handleAddTestimonial}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#00685f] hover:text-[#00524b] px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar Testimonio</span>
+                  </button>
+                )}
+              </div>
+
+              {(!formData.testimonials || formData.testimonials.length === 0) ? (
+                <div className="p-8 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
+                  <Star className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-stone-600">Aún no has agregado testimonios</p>
+                  <p className="text-[11px] text-stone-400 mt-0.5 mb-3">Muestra la confianza de tus clientes en tu tarjeta digital</p>
+                  <button
+                    type="button"
+                    onClick={handleAddTestimonial}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#00685f] hover:bg-[#00524b] px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar Primer Testimonio</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(formData.testimonials || []).map((t, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-3 relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-stone-800">
+                            {t.name || `Testimonio #${idx + 1}`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTestimonial(idx)}
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Eliminar testimonio"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                            Nombre del Cliente / Recomendador
+                          </label>
+                          <input
+                            type="text"
+                            value={t.name}
+                            onChange={(e) => handleTestimonialChange(idx, 'name', e.target.value)}
+                            placeholder="Ej. Ing. Carlos Mendoza"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-[#00685f] bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                            Cargo / Puesto
+                          </label>
+                          <input
+                            type="text"
+                            value={t.role || ''}
+                            onChange={(e) => handleTestimonialChange(idx, 'role', e.target.value)}
+                            placeholder="Ej. CEO / Directora General"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-[#00685f] bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                            Empresa o Marca
+                          </label>
+                          <input
+                            type="text"
+                            value={t.company || ''}
+                            onChange={(e) => handleTestimonialChange(idx, 'company', e.target.value)}
+                            placeholder="Ej. InnovaTech México"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-[#00685f] bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                            Calificación (Estrellas)
+                          </label>
+                          <div className="flex items-center gap-1.5 h-[34px]">
+                            {[1, 2, 3, 4, 5].map((starCount) => (
+                              <button
+                                key={starCount}
+                                type="button"
+                                onClick={() => handleTestimonialChange(idx, 'stars', starCount)}
+                                className="p-1 transition-transform hover:scale-110 cursor-pointer"
+                              >
+                                <Star
+                                  className={`w-5 h-5 ${
+                                    (t.stars ?? 5) >= starCount
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-stone-300'
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                            <span className="text-xs font-bold text-stone-600 ml-1">
+                              {t.stars ?? 5}/5
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                          Comentario / Recomendación
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={t.comment}
+                          onChange={(e) => handleTestimonialChange(idx, 'comment', e.target.value)}
+                          placeholder="Qué resultado obtuvieron, qué destacaron de tu trabajo..."
+                          className="w-full text-xs px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-[#00685f] bg-white resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                          URL Foto / Logo Cliente (Opcional)
+                        </label>
+                        <input
+                          type="url"
+                          value={t.avatarUrl || ''}
+                          onChange={(e) => handleTestimonialChange(idx, 'avatarUrl', e.target.value)}
+                          placeholder="https://images.unsplash.com/..."
+                          className="w-full text-xs px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-[#00685f] bg-white"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

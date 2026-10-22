@@ -30,6 +30,15 @@ export interface CardSocialLinks {
   website?: string;
 }
 
+export interface CardTestimonial {
+  name: string;
+  role: string;
+  company?: string;
+  comment: string;
+  stars?: number; // 1-5, default 5
+  avatarUrl?: string;
+}
+
 export interface ParticipantProfile {
   publicId: string;
   uid: string;
@@ -64,4 +73,5 @@ export interface ParticipantProfile {
   socialLinks?: CardSocialLinks; // Direct links to social networks
   seoKeywords?: string[]; // SEO / AEO semantic tags
   seoDescription?: string; // Custom summary for search engines and social previews
+  testimonials?: CardTestimonial[]; // Social proof / Client recommendations (up to 3)
 }

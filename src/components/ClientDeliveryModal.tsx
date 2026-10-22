@@ -33,7 +33,7 @@ export const ClientDeliveryModal: React.FC<ClientDeliveryModalProps> = ({
 
   const cardUrl = `${window.location.origin}/c/${profile.publicId}`;
 
-  const deliveryMessage = `¡Hola ${profile.name}! 🚀\n\nTe compartimos el enlace oficial de tu nueva Tarjeta Digital Ejecutiva diseñada por Tribu Creativa QRO:\n👉 ${cardUrl}\n\nPuedes agregarla a la pantalla de inicio de tu teléfono, compartirla al instante por WhatsApp o redes, y mostrar tu código QR en tus reuniones de networking.\n\n¡Mucho éxito en tus conexiones! ✨\n— Tribu Creativa QRO`;
+  const deliveryMessage = `¡Hola ${profile.name}! 🚀\n\nTe compartimos el enlace oficial de tu nueva Tarjeta Digital Ejecutiva diseñada por Tribu Creativa QRO:\n👉 ${cardUrl}\n\nIncluye tu kit ejecutivo completo:\n• Tarjeta digital interactiva y guardado de vCard directo en agenda\n• Intercambio de contactos (Mini-CRM privado con tus prospectos)\n• Generador de fondo de pantalla para celular con tu código QR\n• Firma de correo electrónico HTML con tu foto y enlace\n• Panel de estadísticas privadas (/c/${profile.publicId}?stats=true)\n\n¡Mucho éxito en tus conexiones empresariales! ✨\n— Tribu Creativa QRO`;
 
   useEffect(() => {
     if (isOpen) {
