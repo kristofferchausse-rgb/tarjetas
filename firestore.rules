@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: profiles
+    // Document ID: string (e.g. 'mariana-rivas', 'participante-1')
+    // Fields:
+    //   - publicId: string (required, 1-100 chars)
+    //   - name: string (required, 1-120 chars)
+    //   - shortName: string (required, 1-60 chars)
+    //   - role: string (required, 1-120 chars)
+    //   - company: string (required, 1-120 chars)
+    //   - phone: string (required, 1-30 chars)
+    //   - email: string (required, valid email or empty)
+    //   - published: boolean (required)
+    //   - statusActive: boolean (required)
+    //   - themeKey: string (required, 'ejecutivo' | 'negocio' | 'personal')
+    //   - valueProp: string (optional, 0-500 chars)
+    //   - solutions: list (optional, max 10 items)
+    //   - networkingTargets: list (optional, max 10 items)
+    //   - links: list (optional, max 10 items)
+    //
+    // ===============================================================
+
+    // Helper functions
+    function isValidTheme(theme) {
+      return theme in ['ejecutivo', 'negocio', 'personal'];
+    }
+
+    function isValidProfile(data) {
+      return data.publicId is string && data.publicId.size() > 0 && data.publicId.size() <= 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+             data.shortName is string && data.shortName.size() > 0 && data.shortName.size() <= 60 &&
+             data.role is string && data.role.size() <= 120 &&
+             data.company is string && data.company.size() <= 120 &&
+             data.phone is string && data.phone.size() <= 30 &&
+             data.published is bool &&
+             data.statusActive is bool &&
+             isValidTheme(data.themeKey);
+    }
+
+    match /profiles/{profileId} {
+      // Anyone with the link or QR can view published business cards
+      allow read: if true;
+
+      // Card creation and updates require valid schema
+      allow create: if isValidProfile(request.resource.data);
+      allow update: if isValidProfile(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /activities/{activityId} {
+      // Analytics events for card views & vcard downloads
+      allow read: if true;
+      allow create: if request.resource.data.publicId is string;
+      allow update, delete: if false;
+    }
+  }
+}

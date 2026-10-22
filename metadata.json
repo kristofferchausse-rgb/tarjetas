@@ -1,0 +1,6 @@
+{
+  "name": "RedConecta MX • Tarjetas Digitales",
+  "description": "Micrositios personales compartibles por enlace y QR para networking empresarial en México con vCard 3.0 UTF-8, WhatsApp directo y temas ejecutivos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

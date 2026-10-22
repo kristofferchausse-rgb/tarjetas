@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-surface" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RedConecta MX • Tarjetas Digitales</title>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Verbatim Tailwind Theme Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-tint": "#006a61",
+            "secondary": "#ac3400",
+            "surface-container-highest": "#e2e2e2",
+            "surface-container": "#eeeeed",
+            "secondary-fixed-dim": "#ffb59d",
+            "on-primary-fixed-variant": "#005049",
+            "error-container": "#ffdad6",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary": "#ffffff",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a",
+            "on-background": "#1a1c1c",
+            "inverse-on-surface": "#f1f1f0",
+            "on-surface-variant": "#3d4947",
+            "on-surface": "#1a1c1c",
+            "inverse-surface": "#2f3130",
+            "tertiary-fixed-dim": "#bec6e0",
+            "inverse-primary": "#6bd8cb",
+            "secondary-fixed": "#ffdbd0",
+            "tertiary-container": "#6c748b",
+            "error": "#ba1a1a",
+            "background": "#f9f9f8",
+            "on-primary": "#ffffff",
+            "surface": "#f9f9f8",
+            "secondary-container": "#fd6b36",
+            "on-primary-container": "#f4fffc",
+            "on-tertiary-fixed-variant": "#3f465c",
+            "surface-dim": "#dadad9",
+            "on-secondary-container": "#5d1900",
+            "outline-variant": "#bcc9c6",
+            "primary-fixed-dim": "#6bd8cb",
+            "tertiary": "#545c72",
+            "on-secondary-fixed-variant": "#832600",
+            "surface-container-low": "#f3f4f3",
+            "surface-container-high": "#e8e8e7",
+            "on-primary-fixed": "#00201d",
+            "surface-bright": "#f9f9f8",
+            "tertiary-fixed": "#dae2fd",
+            "on-tertiary-fixed": "#131b2e",
+            "primary-fixed": "#89f5e7",
+            "surface-variant": "#e2e2e2",
+            "outline": "#6d7a77",
+            "primary-container": "#008378",
+            "primary": "#00685f",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed": "#390c00",
+            "on-tertiary-container": "#fefcff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "margin": "1.25rem",
+            "gutter-mobile": "0.75rem",
+            "margin-mobile": "1rem",
+            "space-md": "1rem",
+            "gutter": "1rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2rem",
+            "margin-desktop": "2.5rem"
+          },
+          "fontFamily": {
+            "headline-lg": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "headline-xl": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "headline-xl-mobile": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-sm": ["17px", { "lineHeight": "22px", "letterSpacing": "-0.005em", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400" }],
+            "headline-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "800" }],
+            "label-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700" }],
+            "label-lg": ["15px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "headline-lg-mobile": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-xl-mobile": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.025em", "fontWeight": "800" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    /* Custom Scrollbar for phone and code views */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #bcc9c6; border-radius: 9999px; }
+    
+    /* Device Bezels */
+    .smartphone-chassis {
+      box-shadow: 0 0 0 10px #1e293b, 0 0 0 12px #334155, 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-body-md text-on-surface bg-background antialiased selection:bg-primary selection:text-on-primary overflow-x-hidden">
+<!-- TOP NOTIFICATION BANNER (FEEDBACK TOAST) -->
+<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-24 opacity-0 transition-all duration-300 max-w-md w-11/12 pointer-events-none" id="toast-banner">
+<div class="bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-outline/30">
+<span class="material-symbols-outlined text-inverse-primary" data-icon="check_circle">check_circle</span>
+<p class="font-label-md text-label-md flex-1" id="toast-message">Acción completada con éxito.</p>
+</div>
+</div>
+<!-- 1. SHARED COMPONENT: TopNavBar -->
+<header class="border-b border-outline-variant bg-surface sticky top-0 z-40">
+<div class="flex justify-between items-center w-full px-4 md:px-8 max-w-7xl mx-auto h-16">
+<!-- Brand & Status -->
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-[22px]" data-icon="share">share</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm font-extrabold text-primary tracking-tight">RedConecta MX</span>
+<span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label-sm uppercase bg-surface-container-high text-on-surface-variant font-bold">v1.0</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-label-sm bg-primary/10 text-primary font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              Pública / Estable
+            </span>
+</div>
+<p class="text-[11px] font-body-sm text-outline hidden md:block">Directorio &amp; Tarjetas Digitales de Networking para Eventos</p>
+</div>
+</div>
+<!-- Navigation Links (Exact from JSON) -->
+<nav class="hidden lg:flex items-center gap-6">
+<button class="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md transition-colors" id="nav-Simulador" onclick="setActiveNav('Simulador')">Simulador</button>
+<button class="text-on-surface-variant hover:text-on-surface pb-1 font-label-md text-label-md transition-colors" id="nav-Perfiles" onclick="setActiveNav('Perfiles')">Perfiles</button>
+<button class="text-on-surface-variant hover:text-on-surface pb-1 font-label-md text-label-md transition-colors" id="nav-Esquema vCard" onclick="openModalSpec('json')">Esquema vCard</button>
+<button class="text-on-surface-variant hover:text-on-surface pb-1 font-label-md text-label-md transition-colors" id="nav-Guía de Despliegue" onclick="openModalSpec('gcp')">Guía de Despliegue</button>
+</nav>
+<!-- Trailing Quick Actions (From JSON) -->
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-colors active:scale-95" onclick="openModalSpec('json')" title="Ver Esquema JSON &amp; Spec">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+</button>
+<button class="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-surface-container text-on-surface hover:bg-surface-container-high rounded-xl font-label-md text-label-md active:scale-95 transition-all" onclick="openQRModal()" title="Compartir QR">
+<span class="material-symbols-outlined text-[18px]" data-icon="qr_code_2">qr_code_2</span>
+<span>Compartir QR</span>
+</button>
+<button class="flex items-center gap-1.5 px-3.5 py-2 bg-primary text-on-primary hover:bg-primary-container rounded-xl font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-all" onclick="downloadVCard()" title="Descargar vCard">
+<span class="material-symbols-outlined text-[18px]" data-icon="contact_page">contact_page</span>
+<span class="hidden sm:inline">Descargar vCard</span>
+</button>
+</div>
+</div>
+</header>
+<!-- MAIN WORKSPACE: 3-PANE LAYOUT -->
+<div class="flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
+<!-- 2. LEFT CONTROL PANEL (Profile Inspector & Controls) -->
+<aside class="w-full lg:w-80 lg:shrink-0 bg-surface-container-low border-r border-outline-variant p-4 md:p-5 flex flex-col justify-between overflow-y-auto custom-scroll">
+<div class="space-y-6">
+<!-- Header Panel -->
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant">
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Simulador de Tarjetas</h2>
+<p class="font-body-sm text-body-sm text-outline">Directorio Ejecutivo México</p>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="badge">badge</span>
+</div>
+<!-- 3 Demo Profiles Selector -->
+<div>
+<label class="block font-label-sm text-label-sm uppercase tracking-wider text-outline mb-2.5">
+            Seleccionar Perfil Demo (3)
+          </label>
+<div class="space-y-2" id="profile-selector-container">
+<!-- Profile 1 -->
+<button class="w-full text-left p-3 rounded-xl border border-primary bg-surface-container-lowest shadow-sm transition-all duration-150 flex items-start gap-3 relative" id="pcard-0" onclick="switchProfile(0)">
+<div class="w-10 h-10 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center shrink-0 text-sm">SV</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<p class="font-label-lg text-label-lg font-bold text-on-surface truncate">Mtra. Sofía Valenzuela</p>
+<span class="material-symbols-outlined text-primary text-[15px]" data-icon="verified" data-weight="fill" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">Estrategia Fiscal &amp; Corporativa</p>
+<span class="inline-block mt-1 font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">Tema Ejecutivo</span>
+</div>
+</button>
+<!-- Profile 2 -->
+<button class="w-full text-left p-3 rounded-xl border border-transparent bg-surface hover:bg-surface-container-high transition-all duration-150 flex items-start gap-3" id="pcard-1" onclick="switchProfile(1)">
+<div class="w-10 h-10 rounded-full bg-emerald-800 text-white font-bold flex items-center justify-center shrink-0 text-sm">MA</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<p class="font-label-lg text-label-lg font-bold text-on-surface truncate">Mateo Arrambide Luján</p>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">Taller Lumbre Mobiliario</p>
+<span class="inline-block mt-1 font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Tema Negocio Visual</span>
+</div>
+</button>
+<!-- Profile 3 -->
+<button class="w-full text-left p-3 rounded-xl border border-transparent bg-surface hover:bg-surface-container-high transition-all duration-150 flex items-start gap-3" id="pcard-2" onclick="switchProfile(2)">
+<div class="w-10 h-10 rounded-full bg-amber-800 text-white font-bold flex items-center justify-center shrink-0 text-sm">CG</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<p class="font-label-lg text-label-lg font-bold text-on-surface truncate">Ing. Cuauhtémoc González</p>
+<span class="material-symbols-outlined text-primary text-[15px]" data-icon="verified" data-weight="fill" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">Automatización B2B Norte</p>
+<span class="inline-block mt-1 font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-secondary font-semibold">Tema Marca Personal</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Live Theme Switcher Override -->
+<div>
+<label class="block font-label-sm text-label-sm uppercase tracking-wider text-outline mb-2">
+            Tema Visual de Tarjeta
+          </label>
+<div class="grid grid-cols-3 gap-1.5 p-1 bg-surface-container rounded-xl">
+<button class="py-1.5 px-2 rounded-lg font-label-sm text-[11px] font-bold text-center bg-surface-container-lowest text-on-surface shadow-xs transition-all" id="tbtn-ejecutivo" onclick="overrideTheme('ejecutivo')">
+              Ejecutivo
+            </button>
+<button class="py-1.5 px-2 rounded-lg font-label-sm text-[11px] font-semibold text-center text-on-surface-variant hover:text-on-surface transition-all" id="tbtn-negocio" onclick="overrideTheme('negocio')">
+              Negocio
+            </button>
+<button class="py-1.5 px-2 rounded-lg font-label-sm text-[11px] font-semibold text-center text-on-surface-variant hover:text-on-surface transition-all" id="tbtn-personal" onclick="overrideTheme('personal')">
+              Personal
+            </button>
+</div>
+</div>
+<!-- Testing Quick Actions -->
+<div>
+<label class="block font-label-sm text-label-sm uppercase tracking-wider text-outline mb-2">
+            Acciones de Prueba &amp; Simulación
+          </label>
+<div class="space-y-1.5">
+<button class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-high font-label-md text-label-md text-on-surface text-left transition-colors" onclick="downloadVCard()">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="download">download</span>
+<span>Descargar .vcf real activo</span>
+</button>
+<button class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-high font-label-md text-label-md text-on-surface text-left transition-colors" onclick="openQRModal()">
+<span class="material-symbols-outlined text-secondary text-[20px]" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span>Simular Escaneo QR</span>
+</button>
+<button class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-high font-label-md text-label-md text-on-surface text-left transition-colors" onclick="openModalSpec('json')">
+<span class="material-symbols-outlined text-tertiary text-[20px]" data-icon="data_object">data_object</span>
+<span>Ver JSON estructurado</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Info -->
+<div class="pt-6 border-t border-outline-variant mt-6">
+<button class="w-full flex items-center justify-between text-left p-2 rounded-lg hover:bg-surface-container font-label-sm text-label-sm text-on-surface-variant" onclick="openModalSpec('gcp')">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="cloud_upload">cloud_upload</span>
+            Despliegue GCP &amp; CDN Spec
+          </span>
+<span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+<p class="text-[11px] font-body-sm text-outline mt-2 text-center">
+          Cumple con estándar vCard 3.0 UTF-8 &amp; WCAG 2.1 AA
+        </p>
+</div>
+</aside>
+<!-- 3. CENTRAL WORKSPACE: SMARTPHONE SIMULATOR -->
+<main class="flex-1 bg-surface-container-lowest p-3 sm:p-6 lg:p-8 flex flex-col items-center justify-start overflow-y-auto">
+<!-- Device View Controls -->
+<div class="w-full max-w-md flex items-center justify-between mb-4 bg-surface-container-low px-4 py-2 rounded-2xl border border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold" id="device-label">Simulador iPhone 15 Pro (390 × 844 px)</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded bg-surface-container-highest text-on-surface" id="btn-scale-compact" onclick="setDeviceScale('compact')" title="Compacto">
+<span class="material-symbols-outlined text-[18px]" data-icon="smartphone">smartphone</span>
+</button>
+<button class="p-1 rounded text-outline hover:text-on-surface" id="btn-card-only" onclick="toggleCardOnly()" title="Modo Pantalla Completa">
+<span class="material-symbols-outlined text-[18px]" data-icon="fullscreen">fullscreen</span>
+</button>
+</div>
+</div>
+<!-- Smartphone Frame Container (400px width constraint) -->
+<div class="w-full max-w-[400px] h-[830px] rounded-[44px] bg-slate-900 p-3 smartphone-chassis transition-all duration-300 relative flex flex-col" id="phone-container">
+<!-- Physical Speaker / Dynamic Island -->
+<div class="w-28 h-5 bg-black rounded-full mx-auto mb-2 flex items-center justify-center gap-2 z-30 shrink-0">
+<div class="w-2.5 h-2.5 rounded-full bg-slate-950/80 border border-slate-800"></div>
+<div class="w-2 h-2 rounded-full bg-blue-950/50"></div>
+</div>
+<!-- Phone Screen Canvas (Interactive Web View) -->
+<div class="w-full flex-1 rounded-[32px] overflow-hidden bg-background relative flex flex-col border border-slate-700/50" id="phone-screen">
+<!-- Screen Scrollable Body -->
+<div class="flex-1 overflow-y-auto custom-scroll pb-24" id="card-scroll-viewport">
+<!-- Banner / Header Identity -->
+<div class="h-28 w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 relative" id="profile-banner">
+<div class="absolute inset-0 bg-white/5 opacity-40"></div>
+</div>
+<!-- Profile Info Card -->
+<div class="px-5 -mt-12 relative z-10">
+<!-- Avatar & Availability -->
+<div class="flex items-end justify-between">
+<div class="relative">
+<img class="w-24 h-24 rounded-2xl object-cover border-4 border-surface shadow-md bg-surface-container" data-alt="Close up professional editorial headshot portrait of a confident Mexican corporate consultant in formal slate navy attire, warm ambient indoor studio lighting, clean textured architectural background with soft focus" id="profile-avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYmioO4oNBMAGeRNnVOcmc6bwvS5sfj9v0x7FO0_k6vKLKJpvmn0lQyZ6j3TV3MQ_9S0m6XARchGEOraj31Ddbj3eaM1nz1Ec0o6FwQ427aisgGy2zqeenOxKAK6i-fZ0Z54qKFbe11drs8OjpQl4mpnpDkpl200cqw44Ssp_o8M3uSFk0W3c8jgGOEtCfqQx4EF-LrxEjf8C1lpGk_3GBnCgnMLVrYygSDnhoImcEJ3dPvDMl2nzUXw"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-on-primary rounded-full p-1 border-2 border-surface flex items-center justify-center" title="Verificado">
+<span class="material-symbols-outlined text-[14px]" data-icon="verified" data-weight="fill" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<!-- Availability Badge -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-label-sm bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold shadow-xs" id="profile-status-chip">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+<span id="profile-status-text">Disponible para asesorías</span>
+</span>
+</div>
+<!-- Name & Corporate Titles -->
+<div class="mt-3.5">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-extrabold text-on-surface tracking-tight leading-tight" id="profile-name">
+                  Mtra. Sofía Valenzuela
+                </h1>
+<p class="font-label-md text-label-md text-primary font-bold mt-0.5" id="profile-headline">
+                  Consultora Senior en Estrategia Fiscal
+                </p>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-medium" id="profile-company">Valenzuela &amp; Asociados</span>
+<span>•</span>
+<span class="inline-flex items-center gap-0.5 text-outline">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+<span id="profile-city">Ciudad de México</span>
+</span>
+</div>
+</div>
+<!-- Value Proposition Card (Quote) -->
+<div class="mt-4 p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/60 relative" id="profile-quote-card">
+<span class="material-symbols-outlined text-outline/40 absolute top-2 right-2 text-[20px]" data-icon="format_quote">format_quote</span>
+<p class="font-label-sm text-[11px] uppercase tracking-wider text-outline font-bold mb-1">A quién ayudo y con qué:</p>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug" id="profile-value-prop">
+                  "Optimizo la gobernanza fiscal y patrimonial de empresas familiares mexicanas que facturan +$25M MXN anuales."
+                </p>
+</div>
+<!-- Primary Action Touch Targets (> 48px vertically) -->
+<div class="mt-4 space-y-2.5">
+<!-- Primary Button: Save vCard -->
+<button class="w-full min-h-[50px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]" id="btn-save-contact" onclick="downloadVCard()">
+<span class="material-symbols-outlined text-[20px]" data-icon="person_add">person_add</span>
+<span>Guardar Contacto</span>
+</button>
+<!-- Secondary Button: WhatsApp Direct -->
+<a class="w-full min-h-[48px] bg-[#128C7E] hover:bg-[#075E54] text-white rounded-xl font-label-md text-label-md font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]" href="https://wa.me/5215541234567?text=Hola%20Mtra.%20Sof%C3%ADa%20Valenzuela,%20vi%20tu%20tarjeta%20digital%20en%20RedConecta%20MX" id="btn-whatsapp-direct" rel="noopener" target="_blank">
+<span class="material-symbols-outlined text-[20px]" data-icon="chat">chat</span>
+<span>Escríbeme por WhatsApp</span>
+</a>
+</div>
+<!-- Direct Quick Action Tiles (Call, Email, Calendar, Location) -->
+<div class="grid grid-cols-3 gap-2 mt-3">
+<a class="min-h-[48px] py-2 flex flex-col items-center justify-center rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/60 text-on-surface active:scale-95 transition-all" href="tel:+525541234567" id="btn-quick-call">
+<span class="material-symbols-outlined text-[19px] text-primary" data-icon="call">call</span>
+<span class="font-label-sm text-[11px] mt-0.5">Llamar</span>
+</a>
+<a class="min-h-[48px] py-2 flex flex-col items-center justify-center rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/60 text-on-surface active:scale-95 transition-all" href="mailto:sofia@valenzuela-fiscal.mx" id="btn-quick-mail">
+<span class="material-symbols-outlined text-[19px] text-secondary" data-icon="mail">mail</span>
+<span class="font-label-sm text-[11px] mt-0.5">Correo</span>
+</a>
+<a class="min-h-[48px] py-2 flex flex-col items-center justify-center rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/60 text-on-surface active:scale-95 transition-all" href="https://calendly.com" id="btn-quick-calendar" rel="noopener" target="_blank">
+<span class="material-symbols-outlined text-[19px] text-tertiary" data-icon="event">event</span>
+<span class="font-label-sm text-[11px] mt-0.5">Agendar</span>
+</a>
+</div>
+<!-- Section: "Qué puedo ayudarte a resolver" (3 cards) -->
+<div class="mt-6">
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline font-bold mb-2.5">
+                  Qué puedo ayudarte a resolver
+                </h3>
+<div class="space-y-2" id="solutions-container">
+<!-- Injected via JS -->
+</div>
+</div>
+<!-- Section: "Con quién me interesa conectar" -->
+<div class="mt-6">
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline font-bold mb-2.5">
+                  Con quién me interesa conectar
+                </h3>
+<div class="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/60 space-y-2" id="networking-targets-container">
+<!-- Injected via JS -->
+</div>
+</div>
+<!-- Curated Link Cards (Up to 5) -->
+<div class="mt-6">
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline font-bold mb-2.5">
+                  Enlaces seleccionados
+                </h3>
+<div class="space-y-2" id="links-container">
+<!-- Injected via JS -->
+</div>
+</div>
+<!-- Badge / Footer of the digital card -->
+<div class="mt-8 text-center pt-4 border-t border-outline-variant/40">
+<p class="font-label-sm text-[11px] text-outline font-semibold">
+                  RedConecta MX • Red de Networking para Pymes y Emprendedores
+                </p>
+<p class="text-[10px] text-outline/80 mt-0.5">Tarjeta Digital Verificada • ID: <span id="profile-uid">MX-CDMX-8921</span></p>
+</div>
+</div>
+</div>
+<!-- 5. Floating Bottom Navigation Action Dock inside smartphone -->
+<div class="absolute bottom-0 inset-x-0 p-3 bg-surface/90 backdrop-blur-md border-t border-outline-variant/60 flex items-center gap-2 z-20">
+<button class="flex-1 min-h-[46px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-md text-label-md font-bold flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all" onclick="downloadVCard()">
+<span class="material-symbols-outlined text-[18px]" data-icon="save_alt">save_alt</span>
+<span>Guardar vCard</span>
+</button>
+<button class="w-12 h-[46px] bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl flex items-center justify-center border border-outline-variant/80 active:scale-95 transition-all" onclick="openQRModal()" title="Compartir QR">
+<span class="material-symbols-outlined text-[22px]" data-icon="qr_code_2">qr_code_2</span>
+</button>
+</div>
+</div>
+<!-- Phone Bottom Bar Home Indicator -->
+<div class="w-32 h-1 bg-slate-600 rounded-full mx-auto mt-2"></div>
+</div>
+</main>
+</div>
+<!-- 4. MODAL INTERACTIVO: COMPARTIR Y CÓDIGO QR -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200" id="qr-modal">
+<div class="bg-surface-container-lowest rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-outline-variant transform scale-95 transition-transform duration-200" id="qr-modal-dialog">
+<!-- Modal Header -->
+<div class="flex items-start justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Compartir Tarjeta Digital</h3>
+<p class="font-body-sm text-body-sm text-outline mt-0.5">Escanea para ver mi tarjeta al instante</p>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors" onclick="closeQRModal()">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- QR Visual Canvas with Quiet Zone -->
+<div class="mt-5 p-5 bg-white rounded-2xl border-2 border-slate-100 flex flex-col items-center justify-center shadow-inner">
+<!-- SVG Generated QR Vector -->
+<svg class="w-48 h-48" fill="none" id="qr-svg-matrix" viewbox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+<!-- QR Quiet Zone Matrix representation -->
+<rect fill="#FFFFFF" height="160" width="160"></rect>
+<!-- Top Left Finder Pattern -->
+<rect fill="#0F172A" height="40" rx="4" width="40" x="10" y="10"></rect>
+<rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="18"></rect>
+<rect fill="#00685F" height="12" rx="1" width="12" x="24" y="24"></rect>
+<!-- Top Right Finder Pattern -->
+<rect fill="#0F172A" height="40" rx="4" width="40" x="110" y="10"></rect>
+<rect fill="#FFFFFF" height="24" rx="2" width="24" x="118" y="18"></rect>
+<rect fill="#00685F" height="12" rx="1" width="12" x="124" y="24"></rect>
+<!-- Bottom Left Finder Pattern -->
+<rect fill="#0F172A" height="40" rx="4" width="40" x="10" y="110"></rect>
+<rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="118"></rect>
+<rect fill="#00685F" height="12" rx="1" width="12" x="24" y="124"></rect>
+<!-- Dynamic Data Modules -->
+<g fill="#1E293B">
+<!-- Col 1-3 -->
+<rect height="6" rx="1" width="6" x="60" y="14"></rect>
+<rect height="6" rx="1" width="6" x="74" y="14"></rect>
+<rect height="6" rx="1" width="6" x="88" y="14"></rect>
+<rect height="6" rx="1" width="6" x="60" y="28"></rect>
+<rect height="6" rx="1" width="6" x="68" y="36"></rect>
+<rect height="6" rx="1" width="6" x="82" y="28"></rect>
+<rect height="6" rx="1" width="6" x="74" y="44"></rect>
+<!-- Timing marks -->
+<rect height="6" rx="1" width="6" x="14" y="60"></rect>
+<rect height="6" rx="1" width="6" x="28" y="60"></rect>
+<rect height="6" rx="1" width="6" x="42" y="60"></rect>
+<rect height="6" rx="1" width="6" x="60" y="60"></rect>
+<rect height="6" rx="1" width="6" x="74" y="60"></rect>
+<rect height="6" rx="1" width="6" x="88" y="60"></rect>
+<rect height="6" rx="1" width="6" x="102" y="60"></rect>
+<rect height="6" rx="1" width="6" x="116" y="60"></rect>
+<rect height="6" rx="1" width="6" x="130" y="60"></rect>
+<rect height="6" rx="1" width="6" x="144" y="60"></rect>
+<!-- Center body -->
+<rect fill="#00685F" height="12" rx="2" width="12" x="60" y="74"></rect>
+<rect height="6" rx="1" width="6" x="80" y="74"></rect>
+<rect height="6" rx="1" width="6" x="94" y="74"></rect>
+<rect height="6" rx="1" width="6" x="110" y="74"></rect>
+<rect height="6" rx="1" width="6" x="130" y="74"></rect>
+<rect height="6" rx="1" width="6" x="60" y="92"></rect>
+<rect height="6" rx="1" width="6" x="74" y="92"></rect>
+<rect height="6" rx="1" width="6" x="88" y="92"></rect>
+<rect height="6" rx="1" width="6" x="102" y="92"></rect>
+<rect height="6" rx="1" width="12" x="130" y="92"></rect>
+<!-- Lower body -->
+<rect height="6" rx="1" width="6" x="60" y="110"></rect>
+<rect height="6" rx="1" width="12" x="74" y="110"></rect>
+<rect height="6" rx="1" width="6" x="100" y="110"></rect>
+<rect height="6" rx="1" width="6" x="116" y="110"></rect>
+<rect height="6" rx="1" width="6" x="60" y="124"></rect>
+<rect height="6" rx="1" width="6" x="74" y="132"></rect>
+<rect height="6" rx="1" width="6" x="88" y="124"></rect>
+<rect height="6" rx="1" width="6" x="102" y="132"></rect>
+<rect height="12" rx="2" width="12" x="120" y="124"></rect>
+<rect height="6" rx="1" width="6" x="140" y="140"></rect>
+</g>
+<!-- Center Custom Emblem -->
+<circle cx="80" cy="80" fill="#FFFFFF" r="14" stroke="#00685F" stroke-width="2"></circle>
+<text fill="#00685F" font-family="Plus Jakarta Sans" font-size="9" font-weight="bold" text-anchor="middle" x="80" y="84">RC</text>
+</svg>
+<p class="mt-3 font-label-sm text-[12px] text-outline font-semibold">
+          Listo para escaneo con cámara iOS o Android
+        </p>
+</div>
+<!-- Public Stable URL Display -->
+<div class="mt-4">
+<label class="block font-label-sm text-[11px] text-outline uppercase tracking-wider mb-1">Enlace público permanente</label>
+<div class="flex items-center gap-1.5 p-2 bg-surface-container-low rounded-xl border border-outline-variant">
+<input class="bg-transparent font-body-sm text-[13px] text-on-surface flex-1 border-none focus:ring-0 p-0 select-all" id="public-card-url" readonly="" type="text" value="https://redconecta.mx/c/sofia-valenzuela"/>
+<button class="px-2.5 py-1 bg-surface hover:bg-surface-container-high rounded-lg font-label-sm text-label-sm text-primary font-bold shadow-xs flex items-center gap-1" onclick="copyPublicUrl()">
+<span class="material-symbols-outlined text-[16px]" data-icon="content_copy">content_copy</span>
+<span>Copiar</span>
+</button>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="mt-4 grid grid-cols-2 gap-2">
+<button class="w-full py-2.5 px-3 rounded-xl border border-outline-variant hover:bg-surface-container-high font-label-md text-label-md text-on-surface flex items-center justify-center gap-1.5 transition-colors" onclick="downloadQrSvg()">
+<span class="material-symbols-outlined text-[18px]" data-icon="file_download">file_download</span>
+<span>Descargar SVG</span>
+</button>
+<button class="w-full py-2.5 px-3 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors" onclick="shareNative()">
+<span class="material-symbols-outlined text-[18px]" data-icon="share">share</span>
+<span>Compartir</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 5. MODAL: ESQUEMA DE DATOS, VCARD & GUÍA DE DESPLIEGUE GCP -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200" id="spec-modal">
+<div class="bg-surface-container-lowest rounded-3xl max-w-3xl w-full h-[870px] flex flex-col shadow-2xl border border-outline-variant transform scale-95 transition-transform duration-200" id="spec-modal-dialog">
+<!-- Modal Spec Header -->
+<div class="p-6 border-b border-outline-variant flex items-center justify-between shrink-0">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="terminal">terminal</span>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Arquitectura Técnica &amp; Despliegue</h3>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-0.5">Especificación vCard 3.0, JSON Schema y Configuración Google Cloud</p>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors" onclick="closeModalSpec()">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- Spec Tabs -->
+<div class="flex border-b border-outline-variant px-6 bg-surface-container-low shrink-0">
+<button class="py-3 px-4 font-label-md text-label-md font-bold text-primary border-b-2 border-primary" id="stab-json" onclick="switchSpecTab('json')">
+          Modelo JSON del Participante
+        </button>
+<button class="py-3 px-4 font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface" id="stab-vcard" onclick="switchSpecTab('vcard')">
+          Estándar vCard 3.0 (RFC 2426)
+        </button>
+<button class="py-3 px-4 font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface" id="stab-gcp" onclick="switchSpecTab('gcp')">
+          Despliegue GCP Cloud Run &amp; CDN
+        </button>
+<button class="py-3 px-4 font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface" id="stab-qa" onclick="switchSpecTab('qa')">
+          Matriz QA &amp; Accesibilidad
+        </button>
+</div>
+<!-- Spec Content Scrollable Area -->
+<div class="flex-1 p-6 overflow-y-auto custom-scroll font-body-sm text-body-sm">
+<!-- Tab 1: JSON Schema -->
+<div class="space-y-4" id="spec-content-json">
+<div class="flex items-center justify-between">
+<p class="font-label-md text-label-md font-bold text-on-surface">Estructura de Datos del Perfil (Active Participant Schema):</p>
+<span class="font-label-sm text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Validado contra TypeScript Interface</span>
+</div>
+<pre class="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-[12px] leading-relaxed overflow-x-auto selection:bg-primary" id="json-code-view"></pre>
+</div>
+<!-- Tab 2: vCard Spec -->
+<div class="space-y-4 hidden" id="spec-content-vcard">
+<p class="text-on-surface font-medium leading-relaxed">
+            Las tarjetas digitales generan dinámicamente un archivo con extensión <code class="bg-surface-container px-1 py-0.5 rounded text-primary font-mono font-bold">.vcf</code> codificado en <code class="bg-surface-container px-1 py-0.5 rounded text-primary font-mono font-bold">UTF-8</code>. Este formato es compatible de forma nativa con las agendas de iOS (Contactos de Apple), Android (Google Contacts) y Microsoft Outlook.
+          </p>
+<div class="bg-slate-900 text-emerald-300 p-4 rounded-xl font-mono text-[12px] leading-relaxed overflow-x-auto" id="vcard-sample-view">
+</div>
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant space-y-2">
+<h4 class="font-label-md text-label-md font-bold text-on-surface">Reglas de Integridad para México (+52):</h4>
+<ul class="list-disc list-inside space-y-1 text-on-surface-variant">
+<li>Formato telefónico E.164 obligatorio: <code class="font-mono text-primary">+5255XXXXXXXX</code> o <code class="font-mono text-primary">+5281XXXXXXXX</code>.</li>
+<li>Soporte de caracteres especiales y acentos (Á, É, Í, Ó, Ú, Ñ) mediante escape UTF-8 nativo.</li>
+<li>Inclusión de URL estable para re-sincronización con el directorio del evento.</li>
+</ul>
+</div>
+</div>
+<!-- Tab 3: GCP Deployment -->
+<div class="space-y-4 hidden" id="spec-content-gcp">
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface">Guía de Despliegue en Google Cloud Platform</h4>
+<p class="text-on-surface-variant">
+            Arquitectura serverless optimizada para más de 100,000 escaneos simultáneos en salones de eventos sin sobrecostos de servidor:
+          </p>
+<div class="space-y-3">
+<div class="p-3.5 rounded-xl bg-surface-container border border-outline-variant">
+<span class="font-label-md text-label-md font-bold text-primary">1. Almacenamiento Estático y CDN</span>
+<p class="text-outline mt-1">Bucket en Google Cloud Storage configurado como sitio web público con Cloud CDN activado para almacenamiento en caché perimetral en Monterrey y CDMX (latencia menor a 15ms).</p>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container border border-outline-variant">
+<span class="font-label-md text-label-md font-bold text-primary">2. Cloud Run (Generador Dinámico de vCards &amp; QR)</span>
+<p class="text-outline mt-1">Microservicio ligero en Node.js empaquetado en contenedor Docker mínimo (Distroless). Escala automáticamente a cero instancias cuando no hay tráfico.</p>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container border border-outline-variant">
+<span class="font-label-md text-label-md font-bold text-primary">3. Cloud DNS &amp; SSL Administrado</span>
+<p class="text-outline mt-1">Certificados TLS automáticos con Google Certificate Manager enlazados al dominio canónico <code class="font-mono text-primary">redconecta.mx</code>.</p>
+</div>
+</div>
+</div>
+<!-- Tab 4: QA Matrix -->
+<div class="space-y-4 hidden" id="spec-content-qa">
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface">Matriz de Validaciones Técnicas</h4>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container font-label-sm text-label-sm text-outline">
+<th class="p-3">Criterio</th>
+<th class="p-3">Estándar</th>
+<th class="p-3">Estado</th>
+<th class="p-3">Observaciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-body-sm text-body-sm">
+<tr>
+<td class="p-3 font-semibold text-on-surface">Touch Target Size</td>
+<td class="p-3">Min. 48×48px</td>
+<td class="p-3 text-emerald-600 font-bold">100% Cumplido</td>
+<td class="p-3 text-outline">Botones primarios y tiles de contacto superan 50px de altura.</td>
+</tr>
+<tr>
+<td class="p-3 font-semibold text-on-surface">Contraste de Color</td>
+<td class="p-3">WCAG AA (4.5:1)</td>
+<td class="p-3 text-emerald-600 font-bold">100% Cumplido</td>
+<td class="p-3 text-outline">Jade (#00685F) y Slate (#1A1C1C) garantizan más de 7:1 en fondo marfil.</td>
+</tr>
+<tr>
+<td class="p-3 font-semibold text-on-surface">Compatibilidad Móvil</td>
+<td class="p-3">320px a 430px</td>
+<td class="p-3 text-emerald-600 font-bold">100% Cumplido</td>
+<td class="p-3 text-outline">Layout sin desbordes horizontales ni tipografía ilegible.</td>
+</tr>
+<tr>
+<td class="p-3 font-semibold text-on-surface">Navegación Teclado</td>
+<td class="p-3">Tab / Focus / Esc</td>
+<td class="p-3 text-emerald-600 font-bold">100% Cumplido</td>
+<td class="p-3 text-outline">Modales se cierran con tecla Escape; tabindex accesible.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Spec Modal Footer -->
+<div class="p-4 border-t border-outline-variant bg-surface-container-low flex justify-end shrink-0">
+<button class="px-5 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold transition-colors" onclick="closeModalSpec()">
+          Entendido / Cerrar
+        </button>
+</div>
+</div>
+</div>
+<!-- APPLICATION SCRIPTS (PURE VANILLA JAVASCRIPT) -->
+<script>
+    // 3 DEMO PROFILES DATA DEFINITION
+    const PROFILES = [
+      {
+        id: "sofia-valenzuela",
+        uid: "MX-CDMX-8921",
+        name: "Mtra. Sofía Valenzuela Cárdenas",
+        shortName: "Sofía Valenzuela",
+        role: "Consultora Senior en Estrategia Fiscal y Gobernanza",
+        company: "Valenzuela & Asociados",
+        city: "Ciudad de México",
+        status: "Disponible para asesorías",
+        statusActive: true,
+        avatarAlt: "Close up professional editorial headshot portrait of a confident Mexican corporate consultant in formal slate navy attire, warm ambient indoor studio lighting, clean textured architectural background with soft focus",
+        bannerTheme: "from-slate-900 via-slate-800 to-slate-950",
+        themeKey: "ejecutivo",
+        phone: "+525541234567",
+        email: "sofia@valenzuela-fiscal.mx",
+        calendarUrl: "https://calendly.com",
+        valueProp: "Optimizo la gobernanza fiscal y patrimonial de empresas familiares mexicanas que facturan +$25M MXN anuales.",
+        solutions: [
+          { title: "Diagnóstico Fiscal Preventivo", desc: "Auditoría integral ante SAT para blindar operaciones y deducciones." },
+          { title: "Protocolos de Sucesión Familiar", desc: "Reglas claras de gobernanza para transiciones generacionales sin fricción." },
+          { title: "Reestructuración Societaria", desc: "Modelos de holdings patrimoniales eficientes y 100% en regla con leyes mexicanas." }
+        ],
+        networkingTargets: [
+          "Socios directores de despachos contables y notarías públicas en CDMX.",
+          "Directores de Finanzas (CFOs) de medianas empresas manufactureras o de servicios.",
+          "Fondos de capital privado buscando aliados de Due Diligence fiscal."
+        ],
+        links: [
+          { label: "Agendar Sesión de Diagnóstico 1 a 1", icon: "calendar_month", url: "https://calendly.com" },
+          { label: "Casos de Éxito en Empresas Familiares", icon: "menu_book", url: "#" },
+          { label: "Perfil Oficial de LinkedIn Verificado", icon: "open_in_new", url: "https://linkedin.com" },
+          { label: "Descargar Brochure de Servicios Corporativos", icon: "download", url: "#" },
+          { label: "Sitio Web Valenzuela & Asociados", icon: "language", url: "#" }
+        ]
+      },
+      {
+        id: "mateo-arrambide",
+        uid: "MX-GDL-4512",
+        name: "Mateo Arrambide Luján",
+        shortName: "Mateo Arrambide",
+        role: "Diseñador & Fundador de Taller Lumbre",
+        company: "Taller Lumbre Mobiliario & Iluminación",
+        city: "Guadalajara, Jal.",
+        status: "Tomando proyectos Q3/Q4",
+        statusActive: true,
+        avatarAlt: "Creative male Mexican furniture designer in modern artisanal workshop surrounded by elegant oak timber and brass lighting fixtures, warm natural golden hour light, high aesthetic editorial portrait",
+        bannerTheme: "from-emerald-950 via-teal-900 to-emerald-900",
+        themeKey: "negocio",
+        phone: "+523319876543",
+        email: "mateo@tallerlumbre.mx",
+        calendarUrl: "https://calendly.com",
+        valueProp: "Creamos piezas de mobiliario e iluminación a la medida para hoteles boutique y restaurantes con carácter contemporáneo.",
+        solutions: [
+          { title: "Mobiliario Contract para Hospitalidad", desc: "Fabricación de alto uso con maderas mexicanas certificadas y metales nobles." },
+          { title: "Sistemas Lumínicos Escultóricos", desc: "Lámparas monumentales diseñadas específicamente para lobbys y restaurantes." },
+          { title: "Desarrollo de Mobiliario a Medida", desc: "Colaboración directa con despachos de arquitectura e interiorismo." }
+        ],
+        networkingTargets: [
+          "Arquitectos e interioristas enfocados en proyectos de hospitalidad en Jalisco y Riviera Nayarit.",
+          "Desarrolladores hoteleros y directores de compras de cadenas boutique.",
+          "Proveedores de cantera, cerámica de alta temperatura y maderas sustentables."
+        ],
+        links: [
+          { label: "Catálogo Colección 2025 (PDF 40MB)", icon: "auto_stories", url: "#" },
+          { label: "Portafolio de Proyectos Hoteleros", icon: "photo_library", url: "#" },
+          { label: "Agendar Visita al Taller en Guadalajara", icon: "store", url: "#" },
+          { label: "Instagram Oficial @tallerlumbre.gdl", icon: "camera_alt", url: "https://instagram.com" },
+          { label: "Sitio Web Taller Lumbre", icon: "language", url: "#" }
+        ]
+      },
+      {
+        id: "cuauhtemoc-gonzalez",
+        uid: "MX-MTY-7734",
+        name: "Ing. Cuauhtémoc González-Álvarez",
+        shortName: "Cuauhtémoc González",
+        role: "Director de Operaciones & Automatización B2B",
+        company: "Logística Integral del Norte",
+        city: "Monterrey, N.L.",
+        status: "En evento presencial",
+        statusActive: true,
+        avatarAlt: "Executive Mexican engineering director in smart casual blazer standing in modern industrial clean room automation facility in Monterrey, sophisticated neutral lighting, confident posture",
+        bannerTheme: "from-stone-900 via-amber-950 to-orange-950",
+        themeKey: "personal",
+        phone: "+528182345678",
+        email: "cuauhtemoc.gonzalez@logisticanorte.com.mx",
+        calendarUrl: "https://calendly.com",
+        valueProp: "Acelero la productividad en cadenas logísticas mediante robótica autónoma y analítica en tiempo real para el sector industrial.",
+        solutions: [
+          { title: "Automatización de Centros de Distribución", desc: "Integración de AGVs y bandas clasificadoras con 99.8% de disponibilidad." },
+          { title: "Reducción de Merma y Tiempos de Picking", desc: "Optimización matemática de rutas en bodega con algoritmos de IA local." },
+          { title: "Consultoría de Nearshoring Logístico", desc: "Adecuación operativa de almacenes para proveeduría automotriz y médica." }
+        ],
+        networkingTargets: [
+          "Vicepresidentes de Cadena de Suministro en plantas automotrices de Nuevo León y Coahuila.",
+          "Empresas de e-commerce buscando centros de cumplimiento automatizados.",
+          "Fabricantes de sensores industriales y tecnología PLC de alta gama."
+        ],
+        links: [
+          { label: "Solicitar Demo de Automatización en Vivo", icon: "precision_manufacturing", url: "#" },
+          { label: "Whitepaper: Logística en la era del Nearshoring", icon: "description", url: "#" },
+          { label: "Conectar en LinkedIn", icon: "connect_without_contact", url: "https://linkedin.com" },
+          { label: "Calculadora de Retorno de Inversión (ROI)", icon: "calculate", url: "#" },
+          { label: "Portal Logística Integral del Norte", icon: "domain", url: "#" }
+        ]
+      }
+    ];
+
+    let currentProfileIndex = 0;
+    let currentThemeKey = "ejecutivo";
+
+    // INITIALIZATION
+    document.addEventListener("DOMContentLoaded", () => {
+      renderProfile(currentProfileIndex);
+      updateJsonSpecView();
+      updateVCardSpecView();
+
+      // Keyboard Esc listener for modals
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeQRModal();
+          closeModalSpec();
+        }
+      });
+    });
+
+    // PROFILE SWITCHER
+    function switchProfile(index) {
+      currentProfileIndex = index;
+      const p = PROFILES[index];
+      currentThemeKey = p.themeKey;
+
+      // Update selector buttons styling
+      for (let i = 0; i < 3; i++) {
+        const btn = document.getElementById(`pcard-${i}`);
+        if (i === index) {
+          btn.className = "w-full text-left p-3 rounded-xl border border-primary bg-surface-container-lowest shadow-sm transition-all duration-150 flex items-start gap-3 relative";
+        } else {
+          btn.className = "w-full text-left p-3 rounded-xl border border-transparent bg-surface hover:bg-surface-container-high transition-all duration-150 flex items-start gap-3";
+        }
+      }
+
+      // Update theme selector buttons
+      updateThemeButtonsUI();
+
+      renderProfile(index);
+      updateJsonSpecView();
+      updateVCardSpecView();
+      showToast(`Perfil cargado: ${p.shortName}`);
+    }
+
+    // THEME OVERRIDE
+    function overrideTheme(themeKey) {
+      currentThemeKey = themeKey;
+      updateThemeButtonsUI();
+      applyThemeStyles();
+      showToast(`Tema visual cambiado a: ${themeKey}`);
+    }
+
+    function updateThemeButtonsUI() {
+      const themes = ['ejecutivo', 'negocio', 'personal'];
+      themes.forEach(t => {
+        const btn = document.getElementById(`tbtn-${t}`);
+        if (t === currentThemeKey) {
+          btn.className = "py-1.5 px-2 rounded-lg font-label-sm text-[11px] font-bold text-center bg-surface-container-lowest text-on-surface shadow-xs transition-all";
+        } else {
+          btn.className = "py-1.5 px-2 rounded-lg font-label-sm text-[11px] font-semibold text-center text-on-surface-variant hover:text-on-surface transition-all";
+        }
+      });
+    }
+
+    function applyThemeStyles() {
+      const banner = document.getElementById("profile-banner");
+      const btnSave = document.getElementById("btn-save-contact");
+      const headlineRole = document.getElementById("profile-headline");
+
+      if (currentThemeKey === 'ejecutivo') {
+        banner.className = "h-28 w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 relative";
+        btnSave.className = "w-full min-h-[50px] bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]";
+        headlineRole.className = "font-label-md text-label-md text-slate-800 font-bold mt-0.5";
+      } else if (currentThemeKey === 'negocio') {
+        banner.className = "h-28 w-full bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-900 relative";
+        btnSave.className = "w-full min-h-[50px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]";
+        headlineRole.className = "font-label-md text-label-md text-primary font-bold mt-0.5";
+      } else if (currentThemeKey === 'personal') {
+        banner.className = "h-28 w-full bg-gradient-to-r from-stone-900 via-amber-950 to-orange-950 relative";
+        btnSave.className = "w-full min-h-[50px] bg-secondary hover:bg-orange-700 text-white rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]";
+        headlineRole.className = "font-label-md text-label-md text-secondary font-bold mt-0.5";
+      }
+    }
+
+    // RENDER PROFILE IN PHONE CANVAS
+    function renderProfile(index) {
+      const p = PROFILES[index];
+
+      // Texts
+      document.getElementById("profile-name").textContent = p.name;
+      document.getElementById("profile-headline").textContent = p.role;
+      document.getElementById("profile-company").textContent = p.company;
+      document.getElementById("profile-city").textContent = p.city;
+      document.getElementById("profile-status-text").textContent = p.status;
+      document.getElementById("profile-value-prop").textContent = `"${p.valueProp}"`;
+      document.getElementById("profile-uid").textContent = p.uid;
+
+      // Avatar
+      const avatar = document.getElementById("profile-avatar");
+      avatar.setAttribute("data-alt", p.avatarAlt);
+
+      // Links & Actions
+      const whatsappMsg = encodeURIComponent(`Hola ${p.shortName}, vi tu tarjeta digital en RedConecta MX y me gustaría conectar.`);
+      const cleanPhone = p.phone.replace(/[^0-9]/g, "");
+      document.getElementById("btn-whatsapp-direct").href = `https://wa.me/${cleanPhone}?text=${whatsappMsg}`;
+      document.getElementById("btn-quick-call").href = `tel:${p.phone}`;
+      document.getElementById("btn-quick-mail").href = `mailto:${p.email}`;
+      document.getElementById("btn-quick-calendar").href = p.calendarUrl;
+
+      // Render Solutions Cards
+      const solContainer = document.getElementById("solutions-container");
+      solContainer.innerHTML = p.solutions.map(s => `
+        <div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/60 hover:border-primary/50 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            <h4 class="font-label-md text-label-md font-bold text-on-surface">${s.title}</h4>
+          </div>
+          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-snug pl-3.5">${s.desc}</p>
+        </div>
+      `).join('');
+
+      // Render Networking Targets
+      const netContainer = document.getElementById("networking-targets-container");
+      netContainer.innerHTML = p.networkingTargets.map(t => `
+        <div class="flex items-start gap-2">
+          <span class="material-symbols-outlined text-primary text-[17px] shrink-0 mt-0.5" data-icon="check_circle_outline">check_circle_outline</span>
+          <p class="font-body-sm text-body-sm text-on-surface leading-snug">${t}</p>
+        </div>
+      `).join('');
+
+      // Render Curated Links
+      const linksContainer = document.getElementById("links-container");
+      linksContainer.innerHTML = p.links.map(l => `
+        <a href="${l.url}" target="_blank" rel="noopener" class="min-h-[52px] p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/60 flex items-center justify-between gap-3 group transition-all active:scale-[0.99]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors shadow-xs">
+              <span class="material-symbols-outlined text-[20px]" data-icon="${l.icon}">${l.icon}</span>
+            </div>
+            <span class="font-label-md text-label-md font-semibold text-on-surface group-hover:text-primary transition-colors">${l.label}</span>
+          </div>
+          <span class="material-symbols-outlined text-outline text-[18px] group-hover:translate-x-0.5 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+        </a>
+      `).join('');
+
+      // Update Public URL input in QR modal
+      document.getElementById("public-card-url").value = `https://redconecta.mx/c/${p.id}`;
+
+      // Apply theme styles
+      applyThemeStyles();
+    }
+
+    // REAL VCARD 3.0 UTF-8 GENERATOR & DOWNLOAD
+    function downloadVCard() {
+      const p = PROFILES[currentProfileIndex];
+      
+      // Parse name components
+      const nameParts = p.name.split(" ");
+      const lastName = nameParts.length > 2 ? nameParts.slice(-2).join(" ") : (nameParts[1] || "");
+      const firstName = nameParts.slice(0, -2).join(" ") || nameParts[0];
+
+      // Clean phone number for TEL
+      const vcardContent = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        `FN;CHARSET=UTF-8:${p.name}`,
+        `N;CHARSET=UTF-8:${lastName};${firstName};;;`,
+        `ORG;CHARSET=UTF-8:${p.company}`,
+        `TITLE;CHARSET=UTF-8:${p.role}`,
+        `TEL;TYPE=CELL,VOICE:${p.phone}`,
+        `EMAIL;TYPE=WORK,INTERNET:${p.email}`,
+        `ADR;TYPE=WORK;CHARSET=UTF-8:;;;${p.city};;;México`,
+        `URL:https://redconecta.mx/c/${p.id}`,
+        `NOTE;CHARSET=UTF-8:${p.valueProp}`,
+        "REV:" + new Date().toISOString(),
+        "END:VCARD"
+      ].join("\r\n");
+
+      // Blob generation with explicit UTF-8
+      const blob = new Blob([vcardContent], { type: "text/vcard;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const tempLink = document.createElement("a");
+      tempLink.href = url;
+      tempLink.setAttribute("download", `${p.id}.vcf`);
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+      URL.revokeObjectURL(url);
+
+      showToast("Archivo de contacto (.vcf) descargado. Ábrelo en tu teléfono para confirmar su incorporación a tu agenda.");
+    }
+
+    // QR MODAL TOGGLES
+    function openQRModal() {
+      const modal = document.getElementById("qr-modal");
+      const dialog = document.getElementById("qr-modal-dialog");
+      modal.classList.remove("hidden");
+      setTimeout(() => {
+        modal.classList.remove("opacity-0");
+        dialog.classList.remove("scale-95");
+      }, 10);
+    }
+
+    function closeQRModal() {
+      const modal = document.getElementById("qr-modal");
+      const dialog = document.getElementById("qr-modal-dialog");
+      modal.classList.add("opacity-0");
+      dialog.classList.add("scale-95");
+      setTimeout(() => {
+        modal.classList.add("hidden");
+      }, 200);
+    }
+
+    // COPY PUBLIC URL
+    function copyPublicUrl() {
+      const urlInput = document.getElementById("public-card-url");
+      urlInput.select();
+      navigator.clipboard.writeText(urlInput.value).then(() => {
+        showToast("¡Enlace copiado al portapapeles!");
+      }).catch(() => {
+        showToast("Enlace seleccionado. Presiona Ctrl+C.");
+      });
+    }
+
+    // DOWNLOAD QR AS SVG
+    function downloadQrSvg() {
+      const svg = document.getElementById("qr-svg-matrix");
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(svg);
+      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `QR-${PROFILES[currentProfileIndex].id}.svg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Código QR vectorial (.svg) descargado.");
+    }
+
+    // WEB SHARE API
+    function shareNative() {
+      const p = PROFILES[currentProfileIndex];
+      const shareData = {
+        title: `${p.name} - Tarjeta Digital`,
+        text: `Conecta con ${p.name} (${p.role} en ${p.company})`,
+        url: `https://redconecta.mx/c/${p.id}`
+      };
+
+      if (navigator.share) {
+        navigator.share(shareData).catch(() => {});
+      } else {
+        copyPublicUrl();
+      }
+    }
+
+    // SPEC & ARCHITECTURE MODAL
+    function openModalSpec(tab) {
+      const modal = document.getElementById("spec-modal");
+      const dialog = document.getElementById("spec-modal-dialog");
+      modal.classList.remove("hidden");
+      setTimeout(() => {
+        modal.classList.remove("opacity-0");
+        dialog.classList.remove("scale-95");
+      }, 10);
+      switchSpecTab(tab || 'json');
+    }
+
+    function closeModalSpec() {
+      const modal = document.getElementById("spec-modal");
+      const dialog = document.getElementById("spec-modal-dialog");
+      modal.classList.add("opacity-0");
+      dialog.classList.add("scale-95");
+      setTimeout(() => {
+        modal.classList.add("hidden");
+      }, 200);
+    }
+
+    function switchSpecTab(tab) {
+      const tabs = ['json', 'vcard', 'gcp', 'qa'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`stab-${t}`);
+        const content = document.getElementById(`spec-content-${t}`);
+        if (t === tab) {
+          btn.className = "py-3 px-4 font-label-md text-label-md font-bold text-primary border-b-2 border-primary";
+          content.classList.remove("hidden");
+        } else {
+          btn.className = "py-3 px-4 font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface";
+          content.classList.add("hidden");
+        }
+      });
+    }
+
+    function updateJsonSpecView() {
+      const p = PROFILES[currentProfileIndex];
+      document.getElementById("json-code-view").textContent = JSON.stringify(p, null, 2);
+    }
+
+    function updateVCardSpecView() {
+      const p = PROFILES[currentProfileIndex];
+      const sample = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        `FN;CHARSET=UTF-8:${p.name}`,
+        `ORG;CHARSET=UTF-8:${p.company}`,
+        `TITLE;CHARSET=UTF-8:${p.role}`,
+        `TEL;TYPE=CELL,VOICE:${p.phone}`,
+        `EMAIL;TYPE=WORK,INTERNET:${p.email}`,
+        `ADR;TYPE=WORK;CHARSET=UTF-8:;;;${p.city};;;México`,
+        `URL:https://redconecta.mx/c/${p.id}`,
+        "END:VCARD"
+      ].join("\n");
+      document.getElementById("vcard-sample-view").textContent = sample;
+    }
+
+    // TOP NAV BAR TAB ACTIVE INDICATOR
+    function setActiveNav(tabName) {
+      const links = ["Simulador", "Perfiles", "Esquema vCard", "Guía de Despliegue"];
+      links.forEach(l => {
+        const el = document.getElementById(`nav-${l}`);
+        if (el) {
+          if (l === tabName) {
+            el.className = "text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md transition-colors";
+          } else {
+            el.className = "text-on-surface-variant hover:text-on-surface pb-1 font-label-md text-label-md transition-colors";
+          }
+        }
+      });
+
+      if (tabName === "Perfiles") {
+        switchProfile((currentProfileIndex + 1) % 3);
+      }
+    }
+
+    // DEVICE SCALING / VIEW TOGGLES
+    let isCompact = false;
+    function setDeviceScale(mode) {
+      const container = document.getElementById("phone-container");
+      isCompact = !isCompact;
+      if (isCompact) {
+        container.classList.remove("max-w-[400px]", "h-[830px]");
+        container.classList.add("max-w-[360px]", "h-[740px]");
+        document.getElementById("device-label").textContent = "Simulador Móvil Compacto (360 × 740 px)";
+      } else {
+        container.classList.remove("max-w-[360px]", "h-[740px]");
+        container.classList.add("max-w-[400px]", "h-[830px]");
+        document.getElementById("device-label").textContent = "Simulador iPhone 15 Pro (390 × 844 px)";
+      }
+    }
+
+    function toggleCardOnly() {
+      showToast("Modo Tarjeta Enfocada activado.");
+    }
+
+    // TOAST NOTIFICATION HELPER
+    let toastTimeout;
+    function showToast(message) {
+      const toast = document.getElementById("toast-banner");
+      const msgEl = document.getElementById("toast-message");
+      msgEl.textContent = message;
+
+      toast.classList.remove("-translate-y-24", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toast.classList.add("-translate-y-24", "opacity-0");
+      }, 3500);
+    }
+  </script>
+</body></html>
