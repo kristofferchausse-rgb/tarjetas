@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ParticipantProfile, CardTheme } from './types/card';
+import { ProfileFeatures } from './types/meeting';
 import { INITIAL_PROFILES } from './data/profiles';
 import { DigitalCard } from './components/DigitalCard';
 import { SimulatorHeader } from './components/SimulatorHeader';
@@ -14,6 +15,7 @@ import { ClientDeliveryModal } from './components/ClientDeliveryModal';
 import { ClientStatsView } from './components/ClientStatsView';
 import { HomePage } from './components/HomePage';
 import { ClientPortalModal } from './components/ClientPortalModal';
+import { ClientPinModal } from './components/ClientPinModal';
 import { Toast } from './components/Toast';
 import { downloadVCardFile } from './utils/vcard';
 import { recordActivity } from './utils/analytics';
@@ -40,7 +42,7 @@ import {
   Lock
 } from 'lucide-react';
 
-const STORAGE_KEY = 'redconecta_profiles_v3';
+const STORAGE_KEY = 'redconecta_profiles_v5';
 const ADMIN_PIN_KEY = 'redconecta_admin_pin_v1';
 const ADMIN_SESSION_KEY = 'redconecta_admin_session_v1';
 const DELETED_PROFILES_KEY = 'redconecta_deleted_ids_v1';
@@ -58,6 +60,21 @@ function getDeletedIdsSet(): Set<string> {
   return new Set();
 }
 
+function normalizeProfile(p: ParticipantProfile): ParticipantProfile {
+  const isSara = p.publicId.trim().toLowerCase() === 'sara-sazedi';
+  return {
+    ...p,
+    pin: p.pin || '1234',
+    features: {
+      hasMiniCrm: p.features?.hasMiniCrm !== undefined ? p.features.hasMiniCrm : true,
+      hasMeetingIntelligence:
+        p.features?.hasMeetingIntelligence !== undefined ? p.features.hasMeetingIntelligence : isSara,
+      aiMinutesQuota: p.features?.aiMinutesQuota || 120,
+      aiMinutesUsed: p.features?.aiMinutesUsed !== undefined ? p.features.aiMinutesUsed : (isSara ? 26 : 0)
+    }
+  };
+}
+
 function deduplicateProfiles(list: ParticipantProfile[]): ParticipantProfile[] {
   const seen = new Set<string>();
   const result: ParticipantProfile[] = [];
@@ -66,7 +83,7 @@ function deduplicateProfiles(list: ParticipantProfile[]): ParticipantProfile[] {
     const key = item.publicId.trim().toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
-      result.push(item);
+      result.push(normalizeProfile(item));
     }
   }
   return result;
@@ -165,6 +182,8 @@ export default function App() {
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
   const [isDeliveryOpen, setIsDeliveryOpen] = useState<boolean>(false);
   const [isClientStatsOpen, setIsClientStatsOpen] = useState<boolean>(false);
+  const [isClientPinModalOpen, setIsClientPinModalOpen] = useState<boolean>(false);
+  const [targetPinProfile, setTargetPinProfile] = useState<ParticipantProfile | null>(null);
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -307,7 +326,19 @@ export default function App() {
 
     if (isStatsRoute) {
       setIsHome(false);
-      setIsClientStatsOpen(true);
+      const targetSlug = (targetId || '').toLowerCase();
+      const hasAuth =
+        sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true' ||
+        (targetSlug && sessionStorage.getItem(`client_auth_${targetSlug}`) === 'true');
+
+      if (hasAuth) {
+        setIsClientStatsOpen(true);
+      } else {
+        const matched = profiles.find((p) => p.publicId.toLowerCase() === targetSlug);
+        setTargetPinProfile(matched || null);
+        setIsClientPinModalOpen(true);
+        setIsClientStatsOpen(false);
+      }
     }
 
     if (targetId) {
@@ -516,6 +547,39 @@ export default function App() {
     );
   };
 
+  const handleUpdateProfileFeatures = (publicId: string, features: Partial<ProfileFeatures>) => {
+    const targetId = publicId.trim().toLowerCase();
+    let updatedProfile: ParticipantProfile | null = null;
+    setProfiles((prev) => {
+      const idx = prev.findIndex((p) => p.publicId.trim().toLowerCase() === targetId);
+      if (idx === -1) return prev;
+      const current = prev[idx];
+      const mergedFeatures: ProfileFeatures = {
+        hasMiniCrm: features.hasMiniCrm !== undefined ? features.hasMiniCrm : (current.features?.hasMiniCrm ?? true),
+        hasMeetingIntelligence: features.hasMeetingIntelligence !== undefined ? features.hasMeetingIntelligence : (current.features?.hasMeetingIntelligence ?? false),
+        aiMinutesQuota: features.aiMinutesQuota !== undefined ? features.aiMinutesQuota : (current.features?.aiMinutesQuota ?? 120),
+        aiMinutesUsed: features.aiMinutesUsed !== undefined ? features.aiMinutesUsed : (current.features?.aiMinutesUsed ?? 0),
+      };
+      const updated: ParticipantProfile = {
+        ...current,
+        features: mergedFeatures,
+      };
+      updatedProfile = updated;
+      const copy = [...prev];
+      copy[idx] = updated;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
+      } catch {}
+      return copy;
+    });
+
+    if (updatedProfile) {
+      saveCloudProfile(updatedProfile).then((ok) => {
+        if (ok) showToast('Módulos de la tarjeta actualizados en la nube.');
+      });
+    }
+  };
+
   // Admin PIN & Session Handlers
   const handleUpdatePin = (newPin: string) => {
     try {
@@ -570,6 +634,30 @@ export default function App() {
     ) {
       setIsHome(true);
       window.history.pushState({}, '', '/');
+    }
+  };
+
+  // Client Mini-CRM Authentication Trigger (Protected by PIN)
+  const handleRequestClientAuth = (targetProf: ParticipantProfile) => {
+    const cleanSlug = targetProf.publicId.toLowerCase();
+    const hasAuth =
+      isAdminSession ||
+      sessionStorage.getItem(`client_auth_${cleanSlug}`) === 'true';
+
+    const idx = profiles.findIndex((p) => p.publicId.toLowerCase() === cleanSlug);
+    if (idx !== -1) {
+      setCurrentIndex(idx);
+      setActiveTheme(profiles[idx].themeKey);
+    }
+
+    if (hasAuth) {
+      setIsHome(false);
+      setIsDashboardOpen(false);
+      setIsClientStatsOpen(true);
+      window.history.pushState({}, '', `/c/${targetProf.publicId}/stats`);
+    } else {
+      setTargetPinProfile(targetProf);
+      setIsClientPinModalOpen(true);
     }
   };
 
@@ -692,6 +780,7 @@ export default function App() {
             setIsHome(true);
             window.history.pushState({}, '', '/');
           }}
+          onUpdateProfileFeatures={handleUpdateProfileFeatures}
         />
         {/* Modals for when editing from dashboard */}
         <EditProfileModal
@@ -744,6 +833,15 @@ export default function App() {
           setIsClientStatsOpen(false);
           setIsHome(true);
           window.history.pushState({}, '', '/');
+        }}
+        onLockSession={() => {
+          try {
+            sessionStorage.removeItem(`client_auth_${currentProfile.publicId.toLowerCase()}`);
+          } catch {}
+          setIsClientStatsOpen(false);
+          setIsStandaloneView(true);
+          window.history.pushState({}, '', `/c/${currentProfile.publicId}`);
+          showToast('Sesión cerrada. Panel Mini-CRM bloqueado con éxito.');
         }}
       />
     );
@@ -838,6 +936,7 @@ export default function App() {
               onOpenQR={() => handleOpenQRModal()}
               onDownloadVCard={handleDownloadVCard}
               isStandalone={true}
+              onOpenAdminAccess={() => handleRequestClientAuth(currentProfile)}
             />
           )}
         </main>
@@ -854,6 +953,34 @@ export default function App() {
           onClose={handleCloseAdminAccessModal}
           onSuccess={handleAdminAuthSuccess}
           storedPin={adminPin}
+        />
+        <ClientPinModal
+          isOpen={isClientPinModalOpen}
+          onClose={() => {
+            setIsClientPinModalOpen(false);
+            if (window.location.pathname.endsWith('/stats')) {
+              const active = targetPinProfile || currentProfile;
+              window.history.pushState({}, '', `/c/${active.publicId}`);
+            }
+          }}
+          profile={targetPinProfile || currentProfile}
+          adminPin={adminPin}
+          onSuccess={() => {
+            const active = targetPinProfile || currentProfile;
+            const targetIdx = profiles.findIndex(
+              (p) => p.publicId.toLowerCase() === active.publicId.toLowerCase()
+            );
+            if (targetIdx !== -1) {
+              setCurrentIndex(targetIdx);
+              setActiveTheme(profiles[targetIdx].themeKey);
+            }
+            setIsClientPinModalOpen(false);
+            setIsHome(false);
+            setIsDashboardOpen(false);
+            setIsClientStatsOpen(true);
+            window.history.pushState({}, '', `/c/${active.publicId}/stats`);
+            showToast(`¡Bienvenida/o ${active.shortName}! Acceso concedido al panel.`);
+          }}
         />
       </div>
     );
@@ -912,15 +1039,40 @@ export default function App() {
           onClose={() => setIsClientPortalOpen(false)}
           profiles={profiles}
           onSelectClientStats={(pubId) => {
-            const idx = profiles.findIndex((p) => p.publicId === pubId);
-            if (idx !== -1) {
-              setCurrentIndex(idx);
-              setActiveTheme(profiles[idx].themeKey);
-            }
+            const matched = profiles.find((p) => p.publicId === pubId);
             setIsClientPortalOpen(false);
+            if (matched) {
+              handleRequestClientAuth(matched);
+            }
+          }}
+        />
+
+        <ClientPinModal
+          isOpen={isClientPinModalOpen}
+          onClose={() => {
+            setIsClientPinModalOpen(false);
+            if (window.location.pathname.endsWith('/stats')) {
+              const active = targetPinProfile || currentProfile;
+              window.history.pushState({}, '', `/c/${active.publicId}`);
+            }
+          }}
+          profile={targetPinProfile || currentProfile}
+          adminPin={adminPin}
+          onSuccess={() => {
+            const active = targetPinProfile || currentProfile;
+            const targetIdx = profiles.findIndex(
+              (p) => p.publicId.toLowerCase() === active.publicId.toLowerCase()
+            );
+            if (targetIdx !== -1) {
+              setCurrentIndex(targetIdx);
+              setActiveTheme(profiles[targetIdx].themeKey);
+            }
+            setIsClientPinModalOpen(false);
             setIsHome(false);
+            setIsDashboardOpen(false);
             setIsClientStatsOpen(true);
-            window.history.pushState({}, '', `/c/${pubId}/stats`);
+            window.history.pushState({}, '', `/c/${active.publicId}/stats`);
+            showToast(`¡Bienvenida/o ${active.shortName}! Acceso concedido al panel.`);
           }}
         />
       </div>
@@ -1054,6 +1206,7 @@ export default function App() {
                     onOpenQR={() => handleOpenQRModal()}
                     onDownloadVCard={handleDownloadVCard}
                     isStandalone={false}
+                    onOpenAdminAccess={() => handleRequestClientAuth(currentProfile)}
                   />
                 )}
               </div>
@@ -1078,6 +1231,28 @@ export default function App() {
         onClose={handleCloseAdminAccessModal}
         onSuccess={handleAdminAuthSuccess}
         storedPin={adminPin}
+      />
+
+      <ClientPinModal
+        isOpen={isClientPinModalOpen}
+        onClose={() => {
+          setIsClientPinModalOpen(false);
+          if (window.location.pathname.endsWith('/stats')) {
+            const active = targetPinProfile || currentProfile;
+            window.history.pushState({}, '', `/c/${active.publicId}`);
+          }
+        }}
+        profile={targetPinProfile || currentProfile}
+        adminPin={adminPin}
+        onSuccess={() => {
+          const active = targetPinProfile || currentProfile;
+          setIsClientPinModalOpen(false);
+          setIsHome(false);
+          setIsDashboardOpen(false);
+          setIsClientStatsOpen(true);
+          window.history.pushState({}, '', `/c/${active.publicId}/stats`);
+          showToast(`¡Bienvenida/o ${active.shortName}! Acceso concedido al Mini-CRM.`);
+        }}
       />
 
       <SpecModal

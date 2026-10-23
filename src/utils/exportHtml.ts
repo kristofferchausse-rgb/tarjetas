@@ -35,15 +35,42 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
     profile.whatsappCustomMessage || `Hola ${profile.shortName || profile.name}, vi tu tarjeta digital y me gustaría conectar.`
   )}`;
 
-  const solutionsHtml = (profile.solutions || []).map((s, idx) => `
+  const solutionsHtml = (profile.solutions || []).map((s, idx) => {
+    const hasFramework = Boolean(s.problem || s.solution);
+    const itemMsg = encodeURIComponent(
+      s.ctaMessage || `Hola ${profile.shortName || profile.name}, vi el caso de "${s.title}" en tu tarjeta y me interesa resolver una necesidad similar.`
+    );
+    const itemWaUrl = `https://wa.me/${cleanPhone}?text=${itemMsg}`;
+
+    return `
     <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:${primaryColor}15; color:${primaryColor}; font-weight:700; font-size:12px;">${idx + 1}</span>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:${primaryColor}15; color:${primaryColor}; font-weight:700; font-size:12px;">0${idx + 1}</span>
         <h4 style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">${escapeHtml(s.title)}</h4>
       </div>
-      <p style="margin:0; font-size:13px; color:#475569; line-height:1.5;">${escapeHtml(s.desc)}</p>
+      ${hasFramework ? `
+        ${s.problem ? `
+          <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:10px; padding:8px 12px; margin-bottom:8px;">
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#b45309; letter-spacing:0.5px; margin-bottom:3px;">¿Cómo ayudamos?</div>
+            <div style="font-size:12px; color:#451a03; line-height:1.4;">${escapeHtml(s.problem)}</div>
+          </div>
+        ` : ''}
+        ${s.solution ? `
+          <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:10px; padding:8px 12px; margin-bottom:10px;">
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#0f766e; letter-spacing:0.5px; margin-bottom:3px;">¿Cómo se resolvió?</div>
+            <div style="font-size:12px; color:#134e4a; line-height:1.4;">${escapeHtml(s.solution)}</div>
+          </div>
+        ` : ''}
+      ` : `
+        <p style="margin:0 0 10px 0; font-size:13px; color:#475569; line-height:1.5;">${escapeHtml(s.desc)}</p>
+      `}
+      <a href="${itemWaUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; padding:8px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; text-decoration:none; font-size:11px; font-weight:700; color:#15803d;">
+        <span>💬 ${escapeHtml(s.ctaText || '¿Tienes una necesidad similar? Resolver reto')}</span>
+        <span>→</span>
+      </a>
     </div>
-  `).join('');
+    `;
+  }).join('');
 
   const alliancesHtml = (profile.networkingTargets || []).map((t) => `
     <div style="display:flex; align-items:flex-start; gap:10px; padding:12px; background:#f1f5f9; border-radius:12px; margin-bottom:8px;">
@@ -261,7 +288,12 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
     <div class="card-body">
       <h1 class="person-name">${escapeHtml(profile.name)}</h1>
       <p class="person-role">${escapeHtml(profile.role)}</p>
-      <p class="person-company">${escapeHtml(profile.company)} • ${escapeHtml(profile.city)}</p>
+      <p class="person-company">${escapeHtml(profile.company)}${profile.showLocation !== false && profile.city ? ` • ${escapeHtml(profile.city)}` : (profile.showLocation === false ? ' • Servicio en línea' : '')}</p>
+      ${profile.showLocation !== false && profile.address ? `
+        <div style="margin-top:6px; margin-bottom:4px; font-size:12px; color:#475569; background:#f1f5f9; padding:6px 10px; border-radius:8px; display:inline-block;">
+          📍 ${escapeHtml(profile.address)} ${profile.googleMapsUrl ? `<a href="${escapeHtml(profile.googleMapsUrl)}" target="_blank" rel="noopener noreferrer" style="color:${primaryColor}; font-weight:700; text-decoration:underline; margin-left:4px;">Ver mapa</a>` : ''}
+        </div>
+      ` : ''}
 
       <div class="status-pill">
         <span class="status-dot"></span>
@@ -300,7 +332,11 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
       ${profile.introVideo?.url ? `
         <div class="section-title">${escapeHtml(profile.introVideo.title || 'Video de Presentación')}</div>
         <div style="position:relative; padding-top:56.25%; width:100%; border-radius:14px; overflow:hidden; margin-bottom:14px; background:#000;">
-          <iframe src="${escapeHtml(formatVideoEmbedUrl(profile.introVideo.url, false))}" style="position:absolute; inset:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          ${/\.(mp4|webm|ogg|mov)($|\?)/i.test(profile.introVideo.url) ? `
+            <video src="${escapeHtml(profile.introVideo.url)}" controls playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000;"></video>
+          ` : `
+            <iframe src="${escapeHtml(formatVideoEmbedUrl(profile.introVideo.url, false))}" style="position:absolute; inset:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          `}
         </div>
       ` : ''}
 

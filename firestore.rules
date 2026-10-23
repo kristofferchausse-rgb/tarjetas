@@ -59,5 +59,15 @@ service cloud.firestore {
       allow create: if request.resource.data.publicId is string;
       allow update, delete: if false;
     }
+
+    match /leads/{leadId} {
+      // Mini-CRM leads captured from digital cards
+      allow read, write: if true;
+    }
+
+    match /meetings/{meetingId} {
+      // Meeting intelligence recordings, transcripts, and action items
+      allow read, write: if true;
+    }
   }
 }

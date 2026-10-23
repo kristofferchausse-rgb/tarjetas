@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ParticipantProfile } from '../types/card';
 import { getStoredStats } from '../utils/analytics';
 import { CapturedLead } from '../types/analytics';
-import { getLeadsForProfile, updateLeadStatus, deleteLead } from '../services/leadService';
+import { getLeadsForProfile, updateLeadStatus, deleteLead, seedMockLeads } from '../services/leadService';
 import { WallpaperModal } from './WallpaperModal';
 import { EmailSignatureModal } from './EmailSignatureModal';
 import {
@@ -23,26 +23,47 @@ import {
   Briefcase,
   Users,
   Send,
-  FileCheck
+  FileCheck,
+  Lock,
+  Mic
 } from 'lucide-react';
+import { MeetingIntelligenceView } from './MeetingIntelligenceView';
 
 interface ClientStatsViewProps {
   profile: ParticipantProfile;
   onBackToCard: () => void;
   onBackHome?: () => void;
+  onLockSession?: () => void;
 }
 
 export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
   profile,
   onBackToCard,
-  onBackHome
+  onBackHome,
+  onLockSession
 }) => {
   const [leads, setLeads] = useState<CapturedLead[]>([]);
-  const [leadsFilter, setLeadsFilter] = useState<'todos' | 'nuevo' | 'contactado' | 'cerrado'>('todos');
+  const [leadsFilter, setLeadsFilter] = useState<'todos' | 'nuevo' | 'contactado' | 'reunion' | 'cerrado'>('todos');
   const [isLoadingLeads, setIsLoadingLeads] = useState(true);
   const [isWallpaperOpen, setIsWallpaperOpen] = useState(false);
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [activeModuleTab, setActiveModuleTab] = useState<'crm' | 'meetings'>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('tab') === 'crm' || window.location.hash.includes('crm')) {
+        return 'crm';
+      }
+      if (urlParams.get('tab') === 'meetings' || window.location.hash.includes('meetings')) {
+        return 'meetings';
+      }
+    } catch {}
+    if (profile.features?.hasMeetingIntelligence) {
+      return 'meetings';
+    }
+    return 'crm';
+  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -56,6 +77,19 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
       setLeads(data);
     } catch (err) {
       console.warn('Error loading leads:', err);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  };
+
+  const handleSeedMockLeads = async () => {
+    setIsLoadingLeads(true);
+    try {
+      const mock = await seedMockLeads(profile.publicId);
+      setLeads(mock);
+      showToast('¡Contactos de ejemplo cargados con éxito!');
+    } catch {
+      showToast('Error al cargar contactos de ejemplo.');
     } finally {
       setIsLoadingLeads(false);
     }
@@ -151,9 +185,21 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-[#00685f]">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Panel Ejecutivo Privado</span>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-[#00685f]">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Panel Ejecutivo Privado</span>
+            </div>
+            {onLockSession && (
+              <button
+                onClick={onLockSession}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-600 text-xs font-semibold border border-stone-200 transition-colors cursor-pointer"
+                title="Cerrar sesión y bloquear panel"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Bloquear</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -170,14 +216,55 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                 Activa
               </span>
+              {profile.features?.hasMeetingIntelligence && (
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                  AI Copilot
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#00685f] font-semibold truncate">{profile.role}</p>
             <p className="text-[11px] text-stone-500 truncate">{profile.company}</p>
           </div>
         </div>
 
-        {/* High-Value Toolkit Bar */}
-        <div className="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-4 text-white shadow-md">
+        {/* Module Switcher Tabs: Only shown when Meeting Intelligence or multiple modules are active */}
+        {profile.features?.hasMeetingIntelligence && profile.features?.hasMiniCrm !== false && (
+          <div className="bg-stone-200/80 p-1 rounded-2xl flex items-center gap-1 shadow-inner">
+            <button
+              onClick={() => setActiveModuleTab('crm')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeModuleTab === 'crm'
+                  ? 'bg-white text-stone-900 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-[#00685f]" />
+              <span>Prospectos & CRM ({leads.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveModuleTab('meetings')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeModuleTab === 'meetings'
+                  ? 'bg-gradient-to-r from-purple-700 to-teal-700 text-white shadow-xs'
+                  : 'text-purple-800 hover:text-purple-900 font-extrabold'
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span>Meeting Intelligence</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-black">
+                PRO
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* Conditionally Render Meeting Intelligence View OR Mini-CRM */}
+        {activeModuleTab === 'meetings' && profile.features?.hasMeetingIntelligence ? (
+          <MeetingIntelligenceView profile={profile} leads={leads} onShowToast={showToast} />
+        ) : (
+          <>
+            {/* High-Value Toolkit Bar */}
+            <div className="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-4 text-white shadow-md">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-teal-300" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-teal-200">
@@ -262,27 +349,37 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
 
         {/* SECTION: Mini-CRM Leads Inbox */}
         <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-xl bg-teal-100 text-[#00685f] flex items-center justify-center font-bold text-xs">
                 {leads.length}
               </div>
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
-                  Buzón de Prospectos (Mini-CRM)
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
+                    Buzón de Prospectos (Mini-CRM)
+                  </h2>
+                  <button
+                    onClick={handleSeedMockLeads}
+                    className="text-[10px] text-[#00685f] hover:text-[#00524b] font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200/60 transition-colors cursor-pointer"
+                    title="Cargar / Restaurar contactos de prueba"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Demo Leads</span>
+                  </button>
+                </div>
                 <p className="text-[10px] text-stone-400">
-                  Contactos intercambiados desde tu tarjeta
+                  Contactos intercambiados desde tu tarjeta ejecutiva
                 </p>
               </div>
             </div>
             {/* Filter Selector */}
-            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl text-[10px] font-bold">
-              {(['todos', 'nuevo', 'contactado', 'cerrado'] as const).map((filterKey) => (
+            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl text-[10px] font-bold overflow-x-auto">
+              {(['todos', 'nuevo', 'contactado', 'reunion', 'cerrado'] as const).map((filterKey) => (
                 <button
                   key={filterKey}
                   onClick={() => setLeadsFilter(filterKey)}
-                  className={`px-2 py-1 rounded-lg capitalize transition-all cursor-pointer ${
+                  className={`px-2 py-1 rounded-lg capitalize transition-all cursor-pointer whitespace-nowrap ${
                     leadsFilter === filterKey
                       ? 'bg-white text-stone-900 shadow-2xs'
                       : 'text-stone-500 hover:text-stone-800'
@@ -310,13 +407,21 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
               <p className="text-[11px] text-stone-400 mt-1 max-w-xs mx-auto leading-relaxed">
                 Cuando alguien pulse "Intercambiar Contacto" en tu tarjeta, sus datos llegarán directamente aquí y podrás escribirles por WhatsApp con 1 clic.
               </p>
+              <button
+                onClick={handleSeedMockLeads}
+                className="mt-3 px-3.5 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Cargar 5 Prospectos Demo</span>
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredLeads.map((lead) => {
-                const statusColors = {
+                const statusColors: Record<string, string> = {
                   nuevo: 'bg-blue-50 text-blue-700 border-blue-200',
                   contactado: 'bg-amber-50 text-amber-700 border-amber-200',
+                  reunion: 'bg-purple-50 text-purple-700 border-purple-200',
                   cerrado: 'bg-emerald-50 text-emerald-700 border-emerald-200',
                   descartado: 'bg-stone-100 text-stone-500 border-stone-200'
                 };
@@ -394,6 +499,7 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                         >
                           <option value="nuevo">Nuevo</option>
                           <option value="contactado">Contactado</option>
+                          <option value="reunion">Reunión</option>
                           <option value="cerrado">Cerrado</option>
                           <option value="descartado">Descartado</option>
                         </select>
@@ -436,6 +542,8 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
             </div>
           </div>
         </div>
+      </>
+    )}
 
         {/* Support & Updates Banner */}
         <div className="p-4 rounded-2xl bg-stone-900 text-white text-center space-y-2">

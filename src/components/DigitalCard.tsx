@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ParticipantProfile, CardTheme } from '../types/card';
+import { ParticipantProfile, CardTheme, CardSolution } from '../types/card';
 import {
   UserCheck,
   UserPlus,
@@ -33,15 +33,18 @@ import {
   Share2,
   Star,
   Smartphone,
-  Award
+  Award,
+  HelpCircle,
+  Mic
 } from 'lucide-react';
 import { getViralSharePayload, AGENCY_NAME, AGENCY_URL } from '../utils/seo';
 import { LeadCaptureModal } from './LeadCaptureModal';
 import { WallpaperModal } from './WallpaperModal';
 import { EmailSignatureModal } from './EmailSignatureModal';
+import { QRModal } from './QRModal';
 import { LanguageSelector } from './FlagIcons';
 import { CardLanguage, CARD_TRANSLATIONS, SAMPLE_PROFILE_TRANSLATIONS } from '../utils/i18n';
-import { formatVideoEmbedUrl, getVideoThumbnail } from '../utils/video';
+import { formatVideoEmbedUrl, getVideoThumbnail, getVideoPlatform } from '../utils/video';
 
 interface DigitalCardProps {
   profile: ParticipantProfile;
@@ -50,6 +53,7 @@ interface DigitalCardProps {
   onDownloadVCard: () => void;
   isStandalone?: boolean;
   onShowToast?: (msg: string) => void;
+  onOpenAdminAccess?: () => void;
 }
 
 export const DigitalCard: React.FC<DigitalCardProps> = ({
@@ -58,13 +62,47 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
   onOpenQR,
   onDownloadVCard,
   isStandalone = false,
-  onShowToast
+  onShowToast,
+  onOpenAdminAccess
 }) => {
   const currentTheme = activeTheme || profile.themeKey;
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [isLocalQROpen, setIsLocalQROpen] = useState(false);
+
+  // Discreet gesture detector for owner admin/CRM access (Triple-tap on avatar or double-tap on footer)
+  const avatarTapTimesRef = React.useRef<number[]>([]);
+  const footerTapTimesRef = React.useRef<number[]>([]);
+
+  const handleAvatarTap = () => {
+    const now = Date.now();
+    const recent = avatarTapTimesRef.current.filter((t) => now - t < 1200);
+    recent.push(now);
+    avatarTapTimesRef.current = recent;
+
+    if (recent.length >= 3) {
+      avatarTapTimesRef.current = [];
+      if (onOpenAdminAccess) {
+        onOpenAdminAccess();
+      }
+    }
+  };
+
+  const handleFooterTap = () => {
+    const now = Date.now();
+    const recent = footerTapTimesRef.current.filter((t) => now - t < 900);
+    recent.push(now);
+    footerTapTimesRef.current = recent;
+
+    if (recent.length >= 2) {
+      footerTapTimesRef.current = [];
+      if (onOpenAdminAccess) {
+        onOpenAdminAccess();
+      }
+    }
+  };
   const [lang, setLang] = useState<CardLanguage>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -154,19 +192,23 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
   );
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
 
-  const handleQuickShare = async () => {
-    const payload = getViralSharePayload(profile);
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share(payload.nativeShareData);
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(payload.whatsappText)}`, '_blank');
-        }
-      }
-    } else {
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(payload.whatsappText)}`, '_blank');
-    }
+  const getSolutionWhatsAppUrl = (item: CardSolution) => {
+    const msg =
+      item.ctaMessage ||
+      (lang === 'en'
+        ? `Hello ${profile.shortName || profile.name}, I saw your case on "${item.title}" on your digital card and have a similar need.`
+        : `Hola ${profile.shortName || profile.name}, vi el caso de "${item.title}" en tu tarjeta digital y me gustaría resolver una necesidad similar.`);
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const handleTriggerQR = () => {
+    setIsLocalQROpen(true);
+    if (onOpenQR) onOpenQR();
+  };
+
+  const handleQuickShare = () => {
+    setIsLocalQROpen(true);
+    if (onOpenQR) onOpenQR();
   };
 
   // Helper icon selector for curated links
@@ -249,7 +291,11 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
       <div className="px-5 -mt-12 relative z-10 pb-28">
         {/* Avatar, Company Logo & Availability Badge */}
         <div className="flex items-end justify-between">
-          <div className="relative">
+          <div
+            className="relative cursor-pointer select-none active:scale-95 transition-transform"
+            onClick={handleAvatarTap}
+            title={profile.name}
+          >
             <img
               src={profile.avatarUrl}
               alt={profile.avatarAlt}
@@ -289,7 +335,7 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
           >
             {displayRole}
           </p>
-          <div className="flex items-center gap-2 mt-1 text-[#3d4947] text-[12px] sm:text-[13px]">
+          <div className="flex items-center gap-2 mt-1 text-[#3d4947] text-[12px] sm:text-[13px] flex-wrap">
             {profile.logoUrl && (
               <img
                 src={profile.logoUrl}
@@ -298,13 +344,69 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
               />
             )}
             <span className="font-medium">{profile.company}</span>
-            <span>•</span>
-            <span className="inline-flex items-center gap-0.5 text-[#6d7a77]">
-              <MapPin className="w-3.5 h-3.5 text-[#6d7a77]" />
-              <span>{displayCity}</span>
-            </span>
+            {/* Ubicación condicional: cuando aplique negocio físico o con sede */}
+            {profile.showLocation !== false && profile.city && (
+              <>
+                <span>•</span>
+                {profile.googleMapsUrl ? (
+                  <a
+                    href={profile.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 text-[#6d7a77] hover:text-[#00685f] transition-colors group cursor-pointer"
+                    title={t.getDirections}
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-[#00685f] group-hover:scale-110 transition-transform" />
+                    <span className="underline decoration-dotted underline-offset-2">{displayCity}</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-0.5 text-[#6d7a77]">
+                    <MapPin className="w-3.5 h-3.5 text-[#6d7a77]" />
+                    <span>{displayCity}</span>
+                  </span>
+                )}
+              </>
+            )}
+            {/* Si es negocio digital / remoto y tiene showLocation apagado */}
+            {profile.showLocation === false && (
+              <>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-[#00685f] font-semibold text-[11px] sm:text-[12px] bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/60">
+                  <Globe className="w-3 h-3 text-[#00685f]" />
+                  <span>{profile.locationMode === 'remoto' ? t.locationRemote : (displayCity || 'En línea')}</span>
+                </span>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Bloque de ubicación física y cómo llegar (solo cuando aplique local o despacho) */}
+        {profile.showLocation !== false && profile.address && (
+          <div className="mt-3 p-2.5 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center justify-between gap-2.5 shadow-2xs">
+            <div className="flex items-start gap-2 text-stone-700 min-w-0">
+              <MapPin className="w-4 h-4 text-[#00685f] shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">
+                  {t.locationPhysical}
+                </span>
+                <p className="text-[12px] text-stone-800 font-medium truncate">
+                  {profile.address}
+                </p>
+              </div>
+            </div>
+            {profile.googleMapsUrl && (
+              <a
+                href={profile.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-[#00685f] text-[11px] font-bold hover:bg-teal-50 transition-colors flex items-center gap-1 shadow-2xs"
+              >
+                <span>{t.getDirections}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Value Proposition Card */}
         {displayValueProp && (
@@ -322,20 +424,39 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
         {/* Intro Video Pitch Player */}
         {profile.introVideo && profile.introVideo.url && (
           (() => {
-            const videoThumbnail = getVideoThumbnail(profile.introVideo.url, profile.introVideo.thumbnailUrl);
+            const isDirectVideo =
+              getVideoPlatform(profile.introVideo.url) === 'direct' ||
+              /\.(mp4|webm|ogg|mov)($|\?)/i.test(profile.introVideo.url);
+            const videoThumbnail =
+              getVideoThumbnail(profile.introVideo.url, profile.introVideo.thumbnailUrl) ||
+              profile.bannerImageUrl ||
+              profile.avatarUrl;
             const embedUrl = formatVideoEmbedUrl(profile.introVideo.url, true);
 
             return (
               <div className="mt-4 rounded-2xl bg-stone-900 overflow-hidden border border-stone-300/80 shadow-xs">
                 {isPlayingVideo ? (
                   <div className="relative pt-[56.25%] w-full bg-black">
-                    <iframe
-                      src={embedUrl}
-                      title={profile.introVideo.title || t.introPitch}
-                      className="absolute inset-0 w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
+                    {isDirectVideo ? (
+                      <video
+                        src={profile.introVideo.url}
+                        controls
+                        autoPlay
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-contain bg-black"
+                      >
+                        <source src={profile.introVideo.url} type="video/mp4" />
+                        Tu navegador no soporta reproducción de video.
+                      </video>
+                    ) : (
+                      <iframe
+                        src={embedUrl}
+                        title={profile.introVideo.title || t.introPitch}
+                        className="absolute inset-0 w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    )}
                   </div>
                 ) : (
                   <div
@@ -542,30 +663,112 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
           </div>
         )}
 
-        {/* Section C: Solutions */}
+        {/* Section C: Solutions / Micro-Casos de Resolución (Framework 3 Preguntas de Sara) */}
         {displaySolutions && displaySolutions.length > 0 && (
           <div className="mt-6">
-            <h2 className="text-[11px] uppercase tracking-wider text-[#6d7a77] font-bold mb-2.5">
-              {t.solutionsLabel}
-            </h2>
-            <div className="space-y-2">
-              {displaySolutions.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-xl bg-white border border-stone-200/80 hover:border-teal-500/40 transition-colors shadow-2xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full bg-[#00685f] shrink-0"
-                      style={
-                        profile.customPrimaryColor ? { backgroundColor: profile.customPrimaryColor } : undefined
-                      }
-                    />
-                    <h3 className="text-[13px] sm:text-[14px] font-bold text-[#1a1c1c]">{item.title}</h3>
+            <div className="flex items-baseline justify-between mb-2.5">
+              <h2 className="text-[11px] uppercase tracking-wider text-[#6d7a77] font-bold">
+                {t.solutionsLabel}
+              </h2>
+              <span className="text-[10px] text-stone-400 font-medium hidden sm:inline">
+                {t.solutionsSubtitle}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {displaySolutions.map((item, idx) => {
+                const hasCaseFramework = Boolean(item.problem || item.solution);
+                const solutionWhatsAppUrl = getSolutionWhatsAppUrl(item);
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-2xl bg-white border border-stone-200/90 hover:border-teal-500/40 transition-all shadow-2xs group/card"
+                  >
+                    {/* Header: Número de caso + Título */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold bg-teal-50 text-[#00685f] border border-teal-200/70 shrink-0"
+                        style={
+                          profile.customPrimaryColor
+                            ? {
+                                backgroundColor: `${profile.customPrimaryColor}15`,
+                                color: profile.customPrimaryColor,
+                                borderColor: `${profile.customPrimaryColor}30`
+                              }
+                            : undefined
+                        }
+                      >
+                        0{idx + 1}
+                      </span>
+                      <h3 className="text-[13px] sm:text-[14px] font-bold text-[#1a1c1c] leading-tight">
+                        {item.title}
+                      </h3>
+                    </div>
+
+                    {/* Caso estructurado con las 3 preguntas (Evita "mucho texto" con micro-cards claras) */}
+                    {hasCaseFramework ? (
+                      <div className="space-y-2 mt-2">
+                        {/* 1. ¿Cómo ayudamos? (El problema o reto) */}
+                        {item.problem && (
+                          <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/60">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <HelpCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span className="text-[10px] uppercase font-extrabold tracking-wider text-amber-800">
+                                {t.howWeHelpQuestion}
+                              </span>
+                            </div>
+                            <p className="text-[12px] sm:text-[12.5px] text-stone-700 leading-snug pl-5">
+                              {item.problem}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* 2. ¿Cómo se resolvió? (La estrategia y resultado) */}
+                        {item.solution && (
+                          <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/60">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Sparkles className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                              <span className="text-[10px] uppercase font-extrabold tracking-wider text-teal-800">
+                                {t.howItWasSolvedQuestion}
+                              </span>
+                            </div>
+                            <p className="text-[12px] sm:text-[12.5px] text-stone-700 leading-snug pl-5">
+                              {item.solution}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Fallback para descripción estándar si no hay campos de caso */
+                      <p className="text-[12px] sm:text-[13px] text-[#3d4947] mt-1 pl-7 leading-snug">
+                        {item.desc}
+                      </p>
+                    )}
+
+                    {/* 3. ¿Tienes una necesidad similar? (CTA interactivo de conexión) */}
+                    <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-stone-500 font-medium hidden sm:inline">
+                        {t.similarNeedQuestion}
+                      </span>
+                      <a
+                        href={solutionWhatsAppUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center sm:justify-start gap-1.5 px-3 py-1.5 rounded-lg bg-[#00685f]/10 hover:bg-[#00685f] text-[#00685f] hover:text-white transition-all text-[11px] font-bold cursor-pointer group/cta"
+                        style={
+                          profile.customPrimaryColor
+                            ? { color: profile.customPrimaryColor }
+                            : undefined
+                        }
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{item.ctaText || t.similarNeedBtn}</span>
+                        <ArrowRight className="w-3 h-3 group-hover/cta:translate-x-0.5 transition-transform" />
+                      </a>
+                    </div>
                   </div>
-                  <p className="text-[12px] sm:text-[13px] text-[#3d4947] mt-1 pl-4 leading-snug">{item.desc}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -717,7 +920,7 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
             <span>Firma Email</span>
           </button>
           <button
-            onClick={onOpenQR}
+            onClick={handleTriggerQR}
             className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-stone-50 text-stone-800 text-[11px] font-bold shadow-2xs border border-stone-200/80 flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:scale-95"
             title="Código QR y vCard"
           >
@@ -759,7 +962,11 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
           <p className="text-[11px] text-[#6d7a77] font-semibold">
             {t.verifiedCardText}
           </p>
-          <div className="flex items-center justify-center gap-1.5 mt-0.5 text-[10px] text-[#6d7a77]/80">
+          <div
+            onClick={handleFooterTap}
+            className="flex items-center justify-center gap-1.5 mt-0.5 text-[10px] text-[#6d7a77]/80 cursor-pointer select-none active:text-[#00685f] transition-colors"
+            title="ID Verificado"
+          >
             <span>
               {t.verifiedCardId} <span className="font-mono">{profile.uid}</span>
             </span>
@@ -767,8 +974,12 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
         </div>
       </div>
 
-      {/* Floating Bottom Action Dock inside card */}
-      <div className="absolute bottom-0 inset-x-0 p-3 bg-white/95 backdrop-blur-md border-t border-stone-200 flex items-center gap-2 z-20">
+      {/* Floating Bottom Action Dock inside card - Always visible and pinned to bottom */}
+      <div
+        className={`${
+          isStandalone ? 'fixed bottom-0 inset-x-0 max-w-[480px] mx-auto' : 'sticky bottom-0 inset-x-0'
+        } p-3 bg-white/95 backdrop-blur-md border-t border-stone-200 flex items-center gap-2 z-40 shadow-lg`}
+      >
         <button
           onClick={onDownloadVCard}
           style={customButtonStyle}
@@ -780,16 +991,16 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
         <button
           onClick={handleQuickShare}
           className="w-12 h-[46px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl flex items-center justify-center border border-emerald-200 active:scale-95 transition-all cursor-pointer"
-          title={t.shareCardTitle}
-          aria-label={t.shareCardTitle}
+          title="Opciones de compartir tarjeta"
+          aria-label="Opciones de compartir tarjeta"
         >
           <Share2 className="w-5 h-5 text-emerald-700" />
         </button>
         <button
-          onClick={onOpenQR}
+          onClick={handleTriggerQR}
           className="w-12 h-[46px] bg-stone-100 hover:bg-stone-200 text-[#1a1c1c] rounded-xl flex items-center justify-center border border-stone-300 active:scale-95 transition-all cursor-pointer"
-          title={t.shareQrTitle}
-          aria-label={t.shareQrTitle}
+          title="Abrir código QR y opciones de compartir"
+          aria-label="Abrir código QR y opciones de compartir"
         >
           <QrCode className="w-5 h-5 text-stone-700" />
         </button>
@@ -816,6 +1027,14 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
       <EmailSignatureModal
         isOpen={isSignatureModalOpen}
         onClose={() => setIsSignatureModalOpen(false)}
+        profile={profile}
+        onShowToast={onShowToast || (() => {})}
+      />
+
+      {/* QR & Share Options Modal */}
+      <QRModal
+        isOpen={isLocalQROpen}
+        onClose={() => setIsLocalQROpen(false)}
         profile={profile}
         onShowToast={onShowToast || (() => {})}
       />

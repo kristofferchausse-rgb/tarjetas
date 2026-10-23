@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink, CardTestimonial } from '../types/card';
+import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink, CardTestimonial, CardSolution } from '../types/card';
 import {
   X,
   Save,
@@ -50,7 +50,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   canDelete = true
 }) => {
   const [formData, setFormData] = useState<ParticipantProfile>({ ...profile });
-  const [activeTab, setActiveTab] = useState<'general' | 'multimedia' | 'video' | 'servicios' | 'enlaces' | 'testimonios' | 'redes'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'multimedia' | 'video' | 'servicios' | 'enlaces' | 'testimonios' | 'redes' | 'modulos'>('general');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Synchronize form data whenever profile changes or modal opens
@@ -98,9 +98,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     });
   };
 
-  const handleSolutionChange = (index: number, key: 'title' | 'desc', val: string) => {
+  const handleSolutionChange = (index: number, key: keyof CardSolution, val: string) => {
     const nextSolutions = [...formData.solutions];
     nextSolutions[index] = { ...nextSolutions[index], [key]: val };
+    // Maintain desc as fallback if user only edits problem
+    if (key === 'problem' && !nextSolutions[index].desc) {
+      nextSolutions[index].desc = val;
+    }
     setFormData((prev) => ({ ...prev, solutions: nextSolutions }));
   };
 
@@ -108,7 +112,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     if (formData.solutions.length < 3) {
       setFormData((prev) => ({
         ...prev,
-        solutions: [...prev.solutions, { title: 'Nuevo Servicio', desc: 'Descripción concreta del servicio' }]
+        solutions: [
+          ...prev.solutions,
+          {
+            title: 'Nuevo Caso de Éxito',
+            desc: 'Cómo ayudamos a resolver este reto',
+            problem: '¿Cómo ayudamos?: Reto o problema que enfrentaba el cliente',
+            solution: '¿Cómo se resolvió?: Estrategia aplicada y resultado tangible obtenido',
+            ctaText: '¿Tienes una necesidad similar?',
+            ctaMessage: `Hola ${formData.shortName || formData.name}, vi tu tarjeta digital y me interesa resolver un reto similar.`
+          }
+        ]
       }));
     }
   };
@@ -317,6 +331,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <Share2 className="w-3.5 h-3.5" />
             <span>Redes & SEO AEO</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('modulos')}
+            className={`py-3 px-3.5 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'modulos'
+                ? 'border-purple-600 text-purple-700 font-extrabold'
+                : 'border-transparent text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+            <span>Módulos & IA (Admin)</span>
+          </button>
         </div>
 
         {/* Form Body */}
@@ -370,17 +396,84 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block font-semibold text-stone-700 mb-1">Ciudad</label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => handleChange('city', e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:border-[#00685f] focus:outline-none"
-                    required
-                  />
+              {/* Modalidad y Ubicación (Presencial vs Digital) */}
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <label className="font-bold text-stone-800 text-xs sm:text-sm block">Ubicación y Modalidad del Negocio</label>
+                    <p className="text-[11px] text-stone-500">Muestra dirección o mapa solo cuando el negocio tenga local físico o despacho.</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.showLocation !== false}
+                      onChange={(e) => handleChange('showLocation', e.target.checked)}
+                      className="rounded text-[#00685f] focus:ring-[#00685f] w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-stone-700">Mostrar ubicación física</span>
+                  </label>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1">Tipo de Negocio</label>
+                    <select
+                      value={formData.locationMode || (formData.showLocation === false ? 'remoto' : 'presencial')}
+                      onChange={(e) => {
+                        const mode = e.target.value as 'presencial' | 'remoto' | 'hibrido';
+                        setFormData((prev) => ({
+                          ...prev,
+                          locationMode: mode,
+                          showLocation: mode !== 'remoto'
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs font-medium focus:border-[#00685f] focus:outline-none"
+                    >
+                      <option value="remoto">En línea / Servicio digital (Sin local físico)</option>
+                      <option value="presencial">Presencial (Tienda física, despacho o consultorio)</option>
+                      <option value="hibrido">Híbrido (Atención digital y presencial)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1">Ciudad o Región Principal</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => handleChange('city', e.target.value)}
+                      placeholder="Ej. Ciudad de México o Cobertura Nacional"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs focus:border-[#00685f] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {formData.showLocation !== false && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-stone-200">
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Dirección Física (Opcional)</label>
+                      <input
+                        type="text"
+                        value={formData.address || ''}
+                        onChange={(e) => handleChange('address', e.target.value)}
+                        placeholder="Ej. Calle, Número, Colonia, CP"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs focus:border-[#00685f] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Enlace a Google Maps (Opcional)</label>
+                      <input
+                        type="url"
+                        value={formData.googleMapsUrl || ''}
+                        onChange={(e) => handleChange('googleMapsUrl', e.target.value)}
+                        placeholder="https://maps.google.com/..."
+                        className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs focus:border-[#00685f] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-stone-700 mb-1">Teléfono (E.164 +52...)</label>
                   <input
@@ -654,52 +747,110 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: Servicios */}
+          {/* TAB 4: Casos de Resolución y Servicios */}
           {activeTab === 'servicios' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="font-bold text-stone-800">Qué puedo ayudarte a resolver (Hasta 3)</label>
+                <div>
+                  <label className="font-bold text-stone-800 text-sm block">Casos de Resolución y Servicios (Hasta 3)</label>
+                  <p className="text-[11px] text-stone-500">
+                    Estructura de 3 preguntas: <strong>¿Cómo ayudamos?</strong>, <strong>¿Cómo se resolvió?</strong> y <strong>¿Tienes una necesidad similar?</strong>
+                  </p>
+                </div>
                 {formData.solutions.length < 3 && (
                   <button
                     type="button"
                     onClick={handleAddSolution}
-                    className="text-xs text-[#00685f] hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                    className="text-xs text-[#00685f] hover:underline flex items-center gap-1 font-semibold cursor-pointer shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Agregar Servicio</span>
+                    <span>Agregar Caso</span>
                   </button>
                 )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {formData.solutions.map((sol, idx) => (
-                  <div key={idx} className="p-3 bg-stone-50 rounded-xl border border-stone-200 relative">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-stone-500">Servicio #{idx + 1}</span>
+                  <div key={idx} className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 relative space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[#00685f] text-white text-[11px] font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-stone-700">Caso / Reto de Resolución #{idx + 1}</span>
+                      </div>
                       {formData.solutions.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveSolution(idx)}
-                          className="text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
-                          title="Eliminar servicio"
+                          className="text-stone-400 hover:text-red-600 transition-colors cursor-pointer p-1 rounded-lg hover:bg-red-50"
+                          title="Eliminar caso"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
-                    <input
-                      type="text"
-                      value={sol.title}
-                      onChange={(e) => handleSolutionChange(idx, 'title', e.target.value)}
-                      placeholder="Título del servicio"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs mb-1.5 bg-white"
-                    />
-                    <textarea
-                      rows={2}
-                      value={sol.desc}
-                      onChange={(e) => handleSolutionChange(idx, 'desc', e.target.value)}
-                      placeholder="Descripción concreta"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs bg-white"
-                    />
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">Título del Reto o Servicio</label>
+                      <input
+                        type="text"
+                        value={sol.title}
+                        onChange={(e) => handleSolutionChange(idx, 'title', e.target.value)}
+                        placeholder="Ej. Desarrollo de Alianzas Comerciales"
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs bg-white font-medium focus:border-[#00685f] focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/60">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-amber-800 mb-1">
+                          1. ¿Cómo ayudamos? (El problema o reto)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={sol.problem || sol.desc || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'problem', e.target.value)}
+                          placeholder="¿Qué reto o dolor enfrentaba el cliente?"
+                          className="w-full px-2 py-1 rounded-lg border border-amber-200 text-xs bg-white focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="p-2.5 bg-teal-50/70 rounded-xl border border-teal-200/60">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-teal-800 mb-1">
+                          2. ¿Cómo se resolvió? (La acción y resultado)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={sol.solution || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'solution', e.target.value)}
+                          placeholder="¿Qué estrategia se aplicó y qué resultado medible se logró?"
+                          className="w-full px-2 py-1 rounded-lg border border-teal-200 text-xs bg-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-white rounded-xl border border-stone-200">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-stone-600 mb-1">
+                        3. ¿Tienes una necesidad similar? (Llamado a la acción)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={sol.ctaText || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'ctaText', e.target.value)}
+                          placeholder="Texto del botón (ej. ¿Tienes una necesidad similar?)"
+                          className="w-full px-2.5 py-1 rounded-lg border border-stone-200 text-xs focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={sol.ctaMessage || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'ctaMessage', e.target.value)}
+                          placeholder="Mensaje prellenado WhatsApp (opcional)"
+                          className="w-full px-2.5 py-1 rounded-lg border border-stone-200 text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1172,6 +1323,110 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:border-[#00685f] focus:outline-none text-xs"
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: Módulos & Permisos (Admin) */}
+          {activeTab === 'modulos' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-700" />
+                  <h4 className="font-extrabold text-sm text-purple-950">
+                    Control de Módulos Premium para {formData.shortName}
+                  </h4>
+                </div>
+                <p className="text-xs text-stone-600">
+                  Activa o restringe qué herramientas puede ver y utilizar el cliente al desbloquear su panel privado con su PIN.
+                </p>
+
+                {/* Module 1: Mini CRM */}
+                <div className="p-3 bg-white rounded-xl border border-stone-200 flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-stone-900 block text-xs">Mini-CRM de Prospectos</span>
+                    <span className="text-[11px] text-stone-500">Captura de contactos e historial de seguimiento</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.features?.hasMiniCrm !== false}
+                    onChange={(e) =>
+                      handleChange('features', {
+                        ...(formData.features || { aiMinutesQuota: 120, aiMinutesUsed: 0 }),
+                        hasMiniCrm: e.target.checked
+                      })
+                    }
+                    className="w-5 h-5 rounded text-[#00685f] cursor-pointer"
+                  />
+                </div>
+
+                {/* Module 2: Meeting Intelligence AI */}
+                <div className="p-3 bg-white rounded-xl border border-purple-200 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-stone-900 text-xs">Meeting Intelligence AI (Premium)</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950">
+                        PRO
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-stone-500">
+                      Grabación de audio, transcripción y generación de minutas con IA
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!formData.features?.hasMeetingIntelligence}
+                    onChange={(e) =>
+                      handleChange('features', {
+                        ...(formData.features || { hasMiniCrm: true }),
+                        hasMeetingIntelligence: e.target.checked,
+                        aiMinutesQuota: formData.features?.aiMinutesQuota || 120,
+                        aiMinutesUsed: formData.features?.aiMinutesUsed || 0
+                      })
+                    }
+                    className="w-5 h-5 rounded text-purple-600 cursor-pointer"
+                  />
+                </div>
+
+                {/* Quota Selector */}
+                {formData.features?.hasMeetingIntelligence && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block font-semibold text-stone-700 text-xs mb-1">
+                        Bolsa de Minutos Mensual
+                      </label>
+                      <select
+                        value={formData.features?.aiMinutesQuota || 120}
+                        onChange={(e) =>
+                          handleChange('features', {
+                            ...formData.features,
+                            aiMinutesQuota: parseInt(e.target.value, 10)
+                          })
+                        }
+                        className="w-full px-3 py-1.5 rounded-xl border border-stone-300 text-xs bg-white"
+                      >
+                        <option value={60}>60 minutos / mes</option>
+                        <option value={120}>120 minutos / mes</option>
+                        <option value={240}>240 minutos / mes</option>
+                        <option value={500}>500 minutos / mes</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-stone-700 text-xs mb-1">
+                        PIN de Acceso del Titular
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="1234"
+                        value={formData.pin || '1234'}
+                        onChange={(e) => handleChange('pin', e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-stone-300 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

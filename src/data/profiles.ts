@@ -11,6 +11,8 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     company: 'Sazedi Consulting Group',
     logoUrl: 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=100&auto=format&fit=crop&q=80',
     city: 'Ciudad de México',
+    showLocation: false, // Negocio digital/consultoría: no fuerza ubicación física
+    locationMode: 'remoto',
     status: 'Disponible para networking',
     statusActive: true,
     avatarUrl: 'https://iaconkris.com/pics/S1.jpeg',
@@ -21,6 +23,13 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     bannerImageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
     customPrimaryColor: '#00685f',
     phone: '+525512345678',
+    pin: '1234',
+    features: {
+      hasMiniCrm: true,
+      hasMeetingIntelligence: true,
+      aiMinutesQuota: 120,
+      aiMinutesUsed: 26
+    },
     whatsappCustomMessage: 'Hola Sara, vi tu tarjeta digital en RedConecta MX y me gustaría conectar contigo.',
     email: 'sara.sazedi@sazediconsulting.com',
     calendarUrl: 'https://calendly.com',
@@ -34,18 +43,36 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     },
     seoDescription: 'Consultora de Negocios y Alianzas Estratégicas para scale-ups y pymes en México.',
     seoKeywords: ['Consultoría de Negocios', 'Alianzas Estratégicas', 'CDMX', 'Mentoría Ejecutiva'],
+    introVideo: {
+      title: 'Video de Presentación: Alianzas & Expansión',
+      url: 'https://iaconkris.com/pics/Sara.mp4',
+      duration: '1:00 min',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&auto=format&fit=crop&q=80'
+    },
     solutions: [
       {
         title: 'Desarrollo de Alianzas Comerciales',
-        desc: 'Estructuración de convenios y canales de distribución de alto impacto.'
+        desc: 'Estructuración de convenios y canales de distribución de alto impacto.',
+        problem: 'Scale-ups y pymes con gran producto pero estancadas por falta de canales de distribución y acuerdos B2B estratégicos.',
+        solution: 'Diseñamos la estrategia de alianzas y negociación directa, logrando convenios clave que duplicaron su alcance en 90 días.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Sara, vi el caso de Alianzas Comerciales en tu tarjeta y me gustaría resolver una necesidad similar en mi negocio.'
       },
       {
-        title: 'Consultoría en Crecimiento de Negocios',
-        desc: 'Optimización de propuesta comercial y posicionamiento en el mercado mexicano.'
+        title: 'Consultoría en Expansión Comercial',
+        desc: 'Optimización de propuesta comercial y posicionamiento en el mercado corporativo.',
+        problem: 'Empresas con ciclos de venta largos, desalineación comercial y propuesta de valor poco clara ante tomadores de decisión.',
+        solution: 'Reestructuramos la oferta de alto valor y la narrativa comercial, elevando 35% la tasa de cierre ante directores generales.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Sara, leí tu caso de Expansión Comercial y tengo un reto similar con el crecimiento de mi empresa.'
       },
       {
-        title: 'Mentoría Ejecutiva para Emprendedores',
-        desc: 'Acompañamiento 1 a 1 para toma de decisiones y expansión.'
+        title: 'Mentoría Ejecutiva para Directores',
+        desc: 'Acompañamiento 1 a 1 para toma de decisiones y expansión directiva.',
+        problem: 'Líderes saturados en la operación diaria sin claridad para decisiones críticas de escalamiento ni estructura de alianzas.',
+        solution: 'Sesiones ejecutivas de enfoque y gobernanza para destrabar cuellos de botella y acelerar la toma de decisiones de alto impacto.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Sara, me interesa tu acompañamiento en mentoría directiva para resolver un reto similar en mi liderazgo.'
       }
     ],
     networkingTargets: [
@@ -102,6 +129,10 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     company: 'Valenzuela & Asociados',
     logoUrl: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=100&auto=format&fit=crop&q=80',
     city: 'Ciudad de México',
+    showLocation: true, // Despacho con sede física
+    locationMode: 'presencial',
+    address: 'Torre Reforma 222, Piso 18, Cuauhtémoc, CDMX',
+    googleMapsUrl: 'https://maps.google.com/?q=Paseo+de+la+Reforma+222+CDMX',
     status: 'Disponible para asesorías',
     statusActive: true,
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&auto=format&fit=crop&q=80',
@@ -135,15 +166,27 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     solutions: [
       {
         title: 'Diagnóstico Fiscal Preventivo',
-        desc: 'Auditoría integral ante SAT para blindar operaciones, deducciones y cumplimiento.'
+        desc: 'Auditoría integral ante SAT para blindar operaciones, deducciones y cumplimiento.',
+        problem: 'Empresas familiares con inconsistencias contables acumuladas y riesgo de auditorías o multas severas del SAT.',
+        solution: 'Auditoría preventiva exhaustiva que regularizó el 100% de expedientes y blindó deducciones por $18M MXN.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mtra. Sofía, me interesa solicitar un Diagnóstico Fiscal Preventivo para mi empresa.'
       },
       {
         title: 'Protocolos de Sucesión Familiar',
-        desc: 'Reglas claras de gobernanza para transiciones generacionales sin fricción patrimonial.'
+        desc: 'Reglas claras de gobernanza para transiciones generacionales sin fricción patrimonial.',
+        problem: 'Familias empresarias en conflicto por falta de reglas claras para el relevo directivo y el control patrimonial.',
+        solution: 'Diseño de estatutos familiares y fideicomisos que garantizaron la transición pacífica a la 2da y 3ra generación.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mtra. Sofía, quisiera consultarle sobre protocolos de sucesión para nuestra empresa familiar.'
       },
       {
         title: 'Reestructuración Societaria',
-        desc: 'Modelos de holdings patrimoniales eficientes y 100% en regla con leyes mexicanas.'
+        desc: 'Modelos de holdings patrimoniales eficientes y 100% en regla con leyes mexicanas.',
+        problem: 'Estructuras dispersas con duplicidad de costos fiscales y alta exposición patrimonial ante contingencias operativas.',
+        solution: 'Consolidación en holding patrimonial que ordenó la tenencia de activos y optimizó la carga impositiva en estricta regla.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mtra. Sofía, nos interesa evaluar una reestructuración societaria con su despacho.'
       }
     ],
     networkingTargets: [
@@ -212,6 +255,10 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     company: 'Taller Lumbre Mobiliario & Iluminación',
     logoUrl: 'https://images.unsplash.com/photo-1516876437184-593fda40c7ce?w=100&auto=format&fit=crop&q=80',
     city: 'Guadalajara, Jal.',
+    showLocation: true, // Taller y Showroom físico
+    locationMode: 'presencial',
+    address: 'Calle Libertad 1420, Col. Americana, Guadalajara, Jal.',
+    googleMapsUrl: 'https://maps.google.com/?q=Calle+Libertad+1420+Guadalajara',
     status: 'Tomando proyectos Q3/Q4',
     statusActive: true,
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
@@ -244,15 +291,27 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     solutions: [
       {
         title: 'Mobiliario Contract para Hospitalidad',
-        desc: 'Fabricación de alto uso con maderas mexicanas certificadas y metales nobles.'
+        desc: 'Fabricación de alto uso con maderas mexicanas certificadas y metales nobles.',
+        problem: 'Hoteles boutique y restaurantes de autor recibiendo piezas genéricas que se desgastan rápidamente con uso continuo.',
+        solution: 'Diseñamos y fabricamos mobiliario con ensambles artesanales de uso rudo y maderas tropicales certificadas para alta afluencia.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mateo, vi el mobiliario contract de Taller Lumbre y tengo un proyecto de hospitalidad con una necesidad similar.'
       },
       {
         title: 'Sistemas Lumínicos Escultóricos',
-        desc: 'Lámparas monumentales diseñadas específicamente para lobbies, bares y restaurantes.'
+        desc: 'Lámparas monumentales diseñadas específicamente para lobbies, bares y restaurantes.',
+        problem: 'Espacios de doble altura o conceptos gastronómicos que carecían de un elemento lumínico icónico que cautivara al comensal.',
+        solution: 'Creamos luminarias monumentales en latón martillado y vidrio soplado que se convirtieron en el sello fotográfico del local.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mateo, busco desarrollar una pieza de iluminación escultórica para un nuevo proyecto de interiorismo.'
       },
       {
         title: 'Desarrollo de Mobiliario a Medida',
-        desc: 'Colaboración directa con despachos de arquitectura e interiorismo de toda la república.'
+        desc: 'Colaboración directa con despachos de arquitectura e interiorismo de toda la república.',
+        problem: 'Despachos de interiorismo con ideas conceptuales complejas que los talleres convencionales no saben materializar.',
+        solution: 'Acompañamos desde el modelado 3D y prototipado físico hasta la instalación final en obra con garantía de autor.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Mateo, somos un despacho de arquitectura y nos gustaría colaborar con Taller Lumbre en piezas a la medida.'
       }
     ],
     networkingTargets: [
@@ -313,6 +372,10 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     company: 'Logística Integral del Norte',
     logoUrl: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&auto=format&fit=crop&q=80',
     city: 'Monterrey, N.L.',
+    showLocation: true,
+    locationMode: 'hibrido',
+    address: 'Parque de Investigación e Innovación Tecnológica (PIIT), Apodaca, N.L.',
+    googleMapsUrl: 'https://maps.google.com/?q=PIIT+Apodaca+Nuevo+Leon',
     status: 'En evento presencial',
     statusActive: true,
     avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
@@ -337,15 +400,27 @@ export const INITIAL_PROFILES: ParticipantProfile[] = [
     solutions: [
       {
         title: 'Automatización de Centros de Distribución',
-        desc: 'Integración de AGVs y bandas clasificadoras con 99.8% de disponibilidad operativa.'
+        desc: 'Integración de AGVs y bandas clasificadoras con 99.8% de disponibilidad operativa.',
+        problem: 'Almacenes con demoras en despacho y costos elevados por transporte interno manual de tarimas en planta.',
+        solution: 'Implementamos flotilla de robots autónomos (AGVs) y bandas inteligentes, elevando la velocidad de despacho un 38%.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Ing. Cuauhtémoc, queremos evaluar la automatización con AGVs en nuestro centro de distribución.'
       },
       {
         title: 'Reducción de Merma y Tiempos de Picking',
-        desc: 'Optimización matemática de rutas en bodega con algoritmos de analítica local.'
+        desc: 'Optimización matemática de rutas en bodega con algoritmos de analítica local.',
+        problem: 'Operadores recorriendo distancias excesivas en bodega con errores de surtido de hasta 6% en horas pico.',
+        solution: 'Desplegamos software de optimización de rutas y terminales inteligentes, bajando el error a menos del 0.2%.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Ing. Cuauhtémoc, nos interesa implementar algoritmos para optimizar tiempos de picking y rutas.'
       },
       {
         title: 'Consultoría de Nearshoring Logístico',
-        desc: 'Adecuación operativa de almacenes para proveeduría automotriz, médica y aeroespacial.'
+        desc: 'Adecuación operativa de almacenes para proveeduría automotriz, médica y aeroespacial.',
+        problem: 'Plantas industriales que requieren cumplir con estándares internacionales Just-in-Time para clientes OEM.',
+        solution: 'Reingeniería de layout y certificación de procesos logísticos para integrarse a cadenas de suministro globales.',
+        ctaText: '¿Tienes una necesidad similar?',
+        ctaMessage: 'Hola Ing. Cuauhtémoc, requerimos consultoría para adecuar nuestra logística a requerimientos de nearshoring.'
       }
     ],
     networkingTargets: [

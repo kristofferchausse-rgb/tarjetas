@@ -1,8 +1,14 @@
+import { ProfileFeatures } from './meeting';
+
 export type CardTheme = 'ejecutivo' | 'negocio' | 'personal';
 
 export interface CardSolution {
   title: string;
   desc: string;
+  problem?: string; // "¿Cómo ayudamos?" / Reto o necesidad que presentaba el cliente
+  solution?: string; // "¿Cómo se resolvió?" / Estrategia, resolución y resultado
+  ctaText?: string; // "¿Tienes una necesidad similar?" / Texto del botón de acción
+  ctaMessage?: string; // Mensaje personalizado para WhatsApp al dar clic en este caso
 }
 
 export interface CardLink {
@@ -49,6 +55,10 @@ export interface ParticipantProfile {
   company: string;
   logoUrl?: string; // Company / personal emblem
   city: string;
+  showLocation?: boolean; // Ocultar o mostrar ubicación en la tarjeta (true: presencial/mostrar, false: remoto/ocultar)
+  locationMode?: 'presencial' | 'remoto' | 'hibrido'; // Modalidad del negocio
+  address?: string; // Dirección física (tienda, despacho, consultorio)
+  googleMapsUrl?: string; // Link directo a Google Maps / Waze
   status: string;
   statusActive: boolean;
   avatarUrl: string;
@@ -74,4 +84,6 @@ export interface ParticipantProfile {
   seoKeywords?: string[]; // SEO / AEO semantic tags
   seoDescription?: string; // Custom summary for search engines and social previews
   testimonials?: CardTestimonial[]; // Social proof / Client recommendations (up to 3)
+  pin?: string; // Optional 4-digit PIN for client Mini-CRM / admin access
+  features?: ProfileFeatures; // Assigned modules: CRM, Meeting Intelligence & AI minutes quota
 }

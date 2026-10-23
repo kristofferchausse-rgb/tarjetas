@@ -14,7 +14,7 @@ export function updateCardHeadSEO(profile: ParticipantProfile): void {
 
   const cardUrl = getStablePublicUrl(profile.publicId);
   const title = `${profile.name} — ${profile.role} | ${profile.company}`;
-  const summary = profile.seoDescription || profile.valueProp || `${profile.role} en ${profile.company}. Tarjeta Digital ejecutiva en ${profile.city}.`;
+  const summary = profile.seoDescription || profile.valueProp || `${profile.role} en ${profile.company}. Tarjeta Digital ejecutiva${profile.showLocation !== false && profile.city ? ` en ${profile.city}` : ''}.`;
   const imageUrl = profile.avatarUrl;
 
   // 1. Document Title

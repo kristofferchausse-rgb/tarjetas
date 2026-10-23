@@ -20,6 +20,103 @@ function saveLocalLeads(publicId: string, leads: CapturedLead[]): void {
 }
 
 /**
+ * High-value mock contacts specifically tailored for Sara Zea (SAZEDI Arquitectura)
+ * to demonstrate the Mini-CRM in action across all pipeline stages.
+ */
+export const SARA_MOCK_LEADS: CapturedLead[] = [
+  {
+    id: 'lead_sara_01',
+    publicId: 'sara-sazedi',
+    name: 'Arq. Roberto Morales',
+    phone: '+52 442 389 4512',
+    email: 'roberto.morales@desarrollosbajio.mx',
+    company: 'Desarrollos Residenciales del Bajío',
+    role: 'Director de Proyectos',
+    message: 'Hola Sara, me encantó tu enfoque de arquitectura bioclimática en la sesión de networking. Tenemos un desarrollo de 12 residencias premium en Zibatá y queremos integrar tu consultoría para optimización solar y acabados sustentables.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    status: 'nuevo',
+    notes: 'Interesado en propuesta de diseño interior bioclimático y confort térmico para casas muestra.'
+  },
+  {
+    id: 'lead_sara_02',
+    publicId: 'sara-sazedi',
+    name: 'Carlos Peña Treviño',
+    phone: '+52 442 420 8901',
+    email: 'cpena.inversiones@gmail.com',
+    company: 'Inversiones Patrimoniales Campanario',
+    role: 'Inversionista Residencial',
+    message: 'Construiré mi residencia en El Campanario (850 m2) y busco un despacho especializado que domine diseño pasivo, iluminación cenital y materiales naturales.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    status: 'nuevo',
+    notes: 'Prospecto de muy alto valor. Requiere presentación privada de portafolio residencial de lujo.'
+  },
+  {
+    id: 'lead_sara_03',
+    publicId: 'sara-sazedi',
+    name: 'Ing. Marcela Vega Salgado',
+    phone: '+52 442 516 7890',
+    email: 'mvega@haciendasanjose.com.mx',
+    company: 'Grupo Hotelero Hacienda San José',
+    role: 'Gerente de Sustentabilidad & Compras',
+    message: 'Vimos tu tarjeta digital en el evento de sustentabilidad de Canaco. Queremos remodelar las suites ejecutivas con iluminación natural y confort térmico.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    status: 'contactado',
+    notes: 'Le envié por WhatsApp el enlace al video de estudio de caso. Muy receptiva, acordamos enviar propuesta el viernes.'
+  },
+  {
+    id: 'lead_sara_04',
+    publicId: 'sara-sazedi',
+    name: 'Lic. Fernando Garza Ruiz',
+    phone: '+52 442 198 2345',
+    email: 'fgarza@nauticaqro.com',
+    company: 'Corporativo Plaza Náutica Juriquilla',
+    role: 'Socio Director',
+    message: 'Buscamos rediseñar 450m2 de áreas comunes y terraza corporativa. Urge visita a sitio la próxima semana.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+    status: 'reunion',
+    notes: 'Reunión agendada para el próximo martes a las 11:00 AM para levantamiento arquitectónico en sitio.'
+  },
+  {
+    id: 'lead_sara_05',
+    publicId: 'sara-sazedi',
+    name: 'Dra. Valeria Gómez Conde',
+    phone: '+52 442 670 1122',
+    email: 'valeria.gomez@clinicaalttus.mx',
+    company: 'Clínica Dermatológica Alttus Juriquilla',
+    role: 'Directora Médica & Propietaria',
+    message: 'Queremos un diseño interior que transmita serenidad y use materiales locales libres de VOCs para nuestros nuevos consultorios.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 144).toISOString(),
+    status: 'cerrado',
+    notes: 'Contrato firmado de proyecto ejecutivo de interiorismo bioclimático. Anticipo del 50% recibido en cuenta bancaria.'
+  }
+];
+
+/**
+ * Seeds mock leads for a profile (saved locally and to Firestore)
+ */
+export async function seedMockLeads(publicId: string): Promise<CapturedLead[]> {
+  const cleanId = publicId.trim().toLowerCase();
+  const mockData = cleanId === 'sara-sazedi' ? SARA_MOCK_LEADS : [];
+  
+  if (mockData.length === 0) return [];
+
+  // 1. Save locally
+  saveLocalLeads(cleanId, mockData);
+
+  // 2. Sync to Firestore in the background
+  try {
+    for (const lead of mockData) {
+      const docRef = doc(db, COLLECTION_NAME, lead.id);
+      await setDoc(docRef, lead);
+    }
+  } catch (err) {
+    console.warn('[LeadService] Could not sync mock leads to Firestore:', err);
+  }
+
+  return mockData;
+}
+
+/**
  * Saves a new captured lead to Firestore and local storage backup
  */
 export async function saveLead(
@@ -80,7 +177,17 @@ export async function getLeadsForProfile(publicId: string): Promise<CapturedLead
     console.warn('[LeadService] Firestore load failed, using local leads:', err);
   }
 
-  return local;
+  // If local already has leads, return them
+  if (local.length > 0) {
+    return local;
+  }
+
+  // If no leads exist and this is Sara Zea's profile, auto-seed realistic mock leads!
+  if (cleanId === 'sara-sazedi') {
+    return await seedMockLeads(cleanId);
+  }
+
+  return [];
 }
 
 /**

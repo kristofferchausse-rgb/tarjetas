@@ -146,6 +146,8 @@ export const CreateProfileModal: React.FC<CreateProfileModalProps> = ({
       role: role || 'Profesionista Independiente',
       company: company || 'Empresa Independiente',
       city: city || 'México',
+      showLocation: template !== 'consultor',
+      locationMode: template === 'consultor' ? 'remoto' : 'presencial',
       status: 'Disponible para conectar',
       statusActive: true,
       avatarUrl:
@@ -180,7 +182,11 @@ export const CreateProfileModal: React.FC<CreateProfileModalProps> = ({
       solutions: [
         {
           title: service1 || 'Asesoría Inicial & Diagnóstico',
-          desc: service1Desc || 'Evaluación de necesidades y plan de acción de alto impacto.'
+          desc: service1Desc || 'Evaluación de necesidades y plan de acción de alto impacto.',
+          problem: 'Reto o necesidad principal que enfrentan los clientes en el sector.',
+          solution: service1Desc || 'Estrategia y acompañamiento para resolver el reto con resultados medibles.',
+          ctaText: '¿Tienes una necesidad similar?',
+          ctaMessage: `Hola ${shortName || name}, vi tu tarjeta digital y me interesa platicar sobre una necesidad similar.`
         }
       ],
       networkingTargets: [
@@ -200,7 +206,14 @@ export const CreateProfileModal: React.FC<CreateProfileModalProps> = ({
           url: linkedinUrl,
           category: 'Redes'
         }] : [])
-      ]
+      ],
+      pin: '1234',
+      features: {
+        hasMiniCrm: true,
+        hasMeetingIntelligence: false,
+        aiMinutesQuota: 120,
+        aiMinutesUsed: 0
+      }
     };
 
     onCreate(newCard);

@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   Lock,
   Layers,
-  ArrowRight
+  ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 
 interface WallpaperModalProps {
@@ -37,12 +38,20 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({
     generateLockscreenWallpaper(profile, {
       themeColor: profile.customPrimaryColor || '#00685f',
       includeAvatar: true
-    }).then((dataUrl) => {
-      if (isMounted) {
-        setWallpaperDataUrl(dataUrl);
-        setIsGenerating(false);
-      }
-    });
+    })
+      .then((dataUrl) => {
+        if (isMounted) {
+          setWallpaperDataUrl(dataUrl);
+          setIsGenerating(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Wallpaper gen error:', err);
+        if (isMounted) {
+          setIsGenerating(false);
+          onShowToast('Hubo un inconveniente al generar el fondo. Inténtalo de nuevo.');
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -52,7 +61,10 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({
   if (!isOpen) return null;
 
   const handleDownload = () => {
-    if (!wallpaperDataUrl) return;
+    if (!wallpaperDataUrl) {
+      onShowToast('El fondo aún se está generando, espera un momento.');
+      return;
+    }
     const filename = `fondo-pantalla-qr-${profile.publicId}.png`;
     downloadWallpaperFile(wallpaperDataUrl, filename);
     recordActivity(
@@ -62,6 +74,16 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({
       'Descarga de fondo de pantalla con QR'
     );
     onShowToast('¡Fondo de pantalla descargado con éxito!');
+  };
+
+  const handleOpenImage = () => {
+    if (!wallpaperDataUrl) return;
+    const win = window.open();
+    if (win) {
+      win.document.write(`<title>Fondo QR - ${profile.name}</title><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="${wallpaperDataUrl}" style="max-height:100vh;max-width:100vw;object-fit:contain;"/></body>`);
+    } else {
+      window.location.href = wallpaperDataUrl;
+    }
   };
 
   return (
@@ -145,21 +167,32 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({
           </div>
         </div>
 
-        {/* Download Action Button */}
-        <button
-          onClick={handleDownload}
-          disabled={isGenerating || !wallpaperDataUrl}
-          className="mt-4 w-full py-3 px-4 rounded-xl bg-[#00685f] hover:bg-[#00514a] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          <span>Descargar Fondo HD para Celular</span>
-        </button>
+        {/* Download Action Buttons */}
+        <div className="mt-4 space-y-2">
+          <button
+            onClick={handleDownload}
+            disabled={isGenerating || !wallpaperDataUrl}
+            className="w-full py-3 px-4 rounded-xl bg-[#00685f] hover:bg-[#00514a] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            <span>Descargar Fondo HD para Celular</span>
+          </button>
+          {wallpaperDataUrl && (
+            <button
+              onClick={handleOpenImage}
+              className="w-full py-2 px-3 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Abrir Imagen en Pantalla Completa (Guardar en Fotos)</span>
+            </button>
+          )}
+        </div>
 
         {/* Simple instructions */}
         <div className="mt-4 pt-4 border-t border-stone-200 text-[11px] text-stone-500 space-y-1">
-          <p className="font-bold text-stone-700 uppercase tracking-wider text-[10px]">Cómo instalarlo en 1 minuto:</p>
-          <p>1. Descarga la imagen y ábrela en la galería de tu celular.</p>
-          <p>2. Toca en Compartir o Ajustes ➔ <strong>"Usar como fondo de pantalla"</strong>.</p>
+          <p className="font-bold text-stone-700 uppercase tracking-wider text-[10px]">Cómo instalarlo en tu celular:</p>
+          <p>1. Pulsa <strong>Descargar</strong> (o abre en pantalla completa y mantén presionada la imagen para <strong>Guardar en Fotos</strong>).</p>
+          <p>2. En tu galería o Ajustes toca <strong>"Usar como fondo de pantalla"</strong>.</p>
           <p>3. Asígnalo a tu <strong>Pantalla de Bloqueo</strong>.</p>
         </div>
       </div>

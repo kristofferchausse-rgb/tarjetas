@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ParticipantProfile, CardTheme } from '../types/card';
+import { ProfileFeatures } from '../types/meeting';
 import { CardStats, ActivityEvent, NetworkingInsight } from '../types/analytics';
 import { getStoredStats, getStoredEvents, extractNetworkingInsights } from '../utils/analytics';
 import {
@@ -35,7 +36,8 @@ import {
   Trash2,
   Send,
   Smartphone,
-  Home
+  Home,
+  Mic
 } from 'lucide-react';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
@@ -54,6 +56,7 @@ interface AdminDashboardProps {
   onLogoutAdmin?: () => void;
   onOpenDelivery?: (publicId: string) => void;
   onBackHome?: () => void;
+  onUpdateProfileFeatures?: (publicId: string, features: Partial<ProfileFeatures>) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -70,7 +73,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdatePin,
   onLogoutAdmin,
   onOpenDelivery,
-  onBackHome
+  onBackHome,
+  onUpdateProfileFeatures
 }) => {
   const [profileToDelete, setProfileToDelete] = useState<ParticipantProfile | null>(null);
   const [isEditingPin, setIsEditingPin] = useState(false);
@@ -566,6 +570,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="py-3 px-3">Participante</th>
                   <th className="py-3 px-3">Tema</th>
                   <th className="py-3 px-3 text-center">Estado (Activar / Pausar)</th>
+                  <th className="py-3 px-3 text-center">Módulos (CRM / AI)</th>
                   <th className="py-3 px-3 text-right">Vistas</th>
                   <th className="py-3 px-3 text-right">vCard Guardadas</th>
                   <th className="py-3 px-3 text-right">WhatsApp</th>
@@ -644,6 +649,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           />
                           <span>{p.published ? 'Activa' : 'Pausada'}</span>
                         </button>
+                      </td>
+
+                      {/* Assigned Modules (CRM & Meeting AI) */}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              const currentMiniCrm = p.features?.hasMiniCrm !== false;
+                              if (onUpdateProfileFeatures) {
+                                onUpdateProfileFeatures(p.publicId, {
+                                  ...p.features,
+                                  hasMiniCrm: !currentMiniCrm
+                                });
+                                onShowToast(
+                                  !currentMiniCrm
+                                    ? `Módulo Mini-CRM asignado a "${p.shortName}"`
+                                    : `Módulo Mini-CRM pausado para "${p.shortName}"`
+                                );
+                              }
+                            }}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                              p.features?.hasMiniCrm !== false
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-stone-100 text-stone-400 border-stone-200'
+                            }`}
+                            title={p.features?.hasMiniCrm !== false ? 'Mini-CRM activo (Haz clic para pausar)' : 'Mini-CRM inactivo (Haz clic para asignar)'}
+                          >
+                            CRM
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const currentAi = !!p.features?.hasMeetingIntelligence;
+                              if (onUpdateProfileFeatures) {
+                                onUpdateProfileFeatures(p.publicId, {
+                                  ...p.features,
+                                  hasMeetingIntelligence: !currentAi,
+                                  aiMinutesQuota: p.features?.aiMinutesQuota || 120,
+                                  aiMinutesUsed: p.features?.aiMinutesUsed || 0
+                                });
+                                onShowToast(
+                                  !currentAi
+                                    ? `✨ Meeting Intelligence (AI) asignado a "${p.shortName}" (120 min)`
+                                    : `Módulo Meeting Intelligence revocado de "${p.shortName}"`
+                                );
+                              }
+                            }}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-0.5 ${
+                              p.features?.hasMeetingIntelligence
+                                ? 'bg-purple-100 text-purple-800 border-purple-300 font-black shadow-2xs'
+                                : 'bg-stone-100 text-stone-400 border-stone-200'
+                            }`}
+                            title={
+                              p.features?.hasMeetingIntelligence
+                                ? `Meeting Intelligence activo (${p.features.aiMinutesQuota || 120} min). Haz clic para revocar.`
+                                : 'Meeting Intelligence inactivo (Haz clic para asignar)'
+                            }
+                          >
+                            <Mic className="w-2.5 h-2.5" />
+                            <span>AI</span>
+                          </button>
+                        </div>
                       </td>
 
                       {/* Views */}

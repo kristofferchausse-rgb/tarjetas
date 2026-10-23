@@ -1,3 +1,5 @@
+import { CardSolution } from '../types/card';
+
 export type CardLanguage = 'es' | 'en';
 
 export const CARD_TRANSLATIONS = {
@@ -13,7 +15,15 @@ export const CARD_TRANSLATIONS = {
     socialChannels: 'Redes & Canales',
     verifiedProfiles: 'Perfiles Verificados',
     valuePropLabel: 'A quién ayudo y con qué:',
-    solutionsLabel: 'Qué puedo ayudarte a resolver',
+    solutionsLabel: '¿Cómo ayudamos & resolvemos?',
+    solutionsSubtitle: 'Casos reales de transformación y resultados',
+    howWeHelpQuestion: '¿Cómo ayudamos?',
+    howItWasSolvedQuestion: '¿Cómo se resolvió?',
+    similarNeedQuestion: '¿Tienes una necesidad similar?',
+    similarNeedBtn: 'Resolver necesidad similar',
+    locationPhysical: 'Ubicación física',
+    locationRemote: 'Servicio en línea / Cobertura nacional',
+    getDirections: 'Cómo llegar',
     networkingLabel: 'Con quién me interesa conectar',
     featuredLinksLabel: 'Enlaces seleccionados',
     connectLeadBtn: 'Conectar & Compartir mis Datos con',
@@ -66,7 +76,15 @@ export const CARD_TRANSLATIONS = {
     socialChannels: 'Social & Channels',
     verifiedProfiles: 'Verified Profiles',
     valuePropLabel: 'Who I help and how:',
-    solutionsLabel: 'How I can help you solve challenges',
+    solutionsLabel: 'How we help & solve challenges',
+    solutionsSubtitle: 'Real case studies & proven results',
+    howWeHelpQuestion: 'How we help',
+    howItWasSolvedQuestion: 'How it was solved',
+    similarNeedQuestion: 'Have a similar challenge?',
+    similarNeedBtn: 'Solve a similar need',
+    locationPhysical: 'Physical location',
+    locationRemote: 'Online service / Nationwide',
+    getDirections: 'Get directions',
     networkingLabel: 'Who I want to connect with',
     featuredLinksLabel: 'Featured links',
     connectLeadBtn: 'Connect & Share my Details with',
@@ -118,7 +136,7 @@ export const SAMPLE_PROFILE_TRANSLATIONS: Record<
     role?: string;
     city?: string;
     valueProp?: string;
-    solutions?: { title: string; desc: string }[];
+    solutions?: CardSolution[];
     networkingTargets?: string[];
   }
 > = {

@@ -33,7 +33,11 @@ export function encodeCardPayload(profile: ParticipantProfile): string {
       cp: profile.customPrimaryColor,
       lg: profile.logoUrl,
       bi: profile.bannerImageUrl,
-      iv: profile.introVideo
+      iv: profile.introVideo,
+      sl: profile.showLocation,
+      lm: profile.locationMode,
+      adr: profile.address,
+      gmu: profile.googleMapsUrl
     };
     return encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(compact)))));
   } catch (err) {
@@ -57,6 +61,10 @@ export function decodeCardPayload(encoded: string): ParticipantProfile | null {
       role: c.r || 'Profesionista',
       company: c.c || 'Empresa Independiente',
       city: c.ci || 'México',
+      showLocation: c.sl !== undefined ? c.sl : true,
+      locationMode: c.lm || (c.sl === false ? 'remoto' : 'presencial'),
+      address: c.adr,
+      googleMapsUrl: c.gmu,
       status: c.st || 'Disponible',
       statusActive: true,
       avatarUrl: c.a || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',

@@ -36,6 +36,7 @@ export interface CapturedLead {
   phone: string;
   email?: string;
   company?: string;
+  role?: string;
   message?: string;
   timestamp: string;
   status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado';

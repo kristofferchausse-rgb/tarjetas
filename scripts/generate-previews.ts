@@ -78,7 +78,7 @@ function generatePersonalizedHtml(baseHtml: string, profile: ParticipantProfile)
   const summary =
     profile.seoDescription ||
     profile.valueProp ||
-    `${profile.role} en ${profile.company}. Tarjeta Digital ejecutiva en ${profile.city || 'México'}.`;
+    `${profile.role} en ${profile.company}. Tarjeta Digital ejecutiva${profile.showLocation !== false && profile.city ? ` en ${profile.city}` : ''}.`;
   
   const avatarImage =
     profile.avatarUrl ||

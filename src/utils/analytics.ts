@@ -6,6 +6,21 @@ const EVENTS_STORAGE_KEY = 'redconecta_analytics_events_v1';
 
 // Seed initial baseline metrics so the dashboard has rich historical context
 const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
+  'sara-sazedi': {
+    publicId: 'sara-sazedi',
+    views: 184,
+    qrScans: 82,
+    shares: 34,
+    vcardDownloads: 48,
+    whatsappClicks: 41,
+    callClicks: 9,
+    emailClicks: 14,
+    calendarClicks: 21,
+    linkClicks: 38,
+    videoPlays: 45,
+    leadsCaptured: 5,
+    lastActive: new Date(Date.now() - 1000 * 60 * 18).toISOString()
+  },
   'sofia-valenzuela': {
     publicId: 'sofia-valenzuela',
     views: 312,
@@ -51,6 +66,22 @@ const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
 };
 
 const DEFAULT_INITIAL_EVENTS: ActivityEvent[] = [
+  {
+    id: 'evt-sara-1',
+    publicId: 'sara-sazedi',
+    participantName: 'Sara Sazedi',
+    type: 'lead_capture',
+    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    label: 'Contacto recibido: Arq. Roberto Morales'
+  },
+  {
+    id: 'evt-sara-2',
+    publicId: 'sara-sazedi',
+    participantName: 'Sara Sazedi',
+    type: 'video_play',
+    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    label: 'Reproducción: Video Caso de Éxito Bioclimático'
+  },
   {
     id: 'evt-1',
     publicId: 'sofia-valenzuela',
