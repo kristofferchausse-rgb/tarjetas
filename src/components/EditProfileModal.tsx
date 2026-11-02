@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink, CardTestimonial, CardSolution } from '../types/card';
+import { ParticipantProfile, CardTheme, CardIntroVideo, CardSocialLinks, CardLink, CardTestimonial, CardSolution, CardProcessStep } from '../types/card';
 import {
   X,
   Save,
@@ -24,7 +24,9 @@ import {
   ArrowRight,
   Award,
   Star,
-  Quote
+  Quote,
+  AlertCircle,
+  Compass
 } from 'lucide-react';
 import { formatVideoEmbedUrl, getVideoThumbnail, getYouTubeId } from '../utils/video';
 
@@ -98,7 +100,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     });
   };
 
-  const handleSolutionChange = (index: number, key: keyof CardSolution, val: string) => {
+  const handleSolutionChange = (index: number, key: keyof CardSolution, val: any) => {
     const nextSolutions = [...formData.solutions];
     nextSolutions[index] = { ...nextSolutions[index], [key]: val };
     // Maintain desc as fallback if user only edits problem
@@ -115,12 +117,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         solutions: [
           ...prev.solutions,
           {
-            title: 'Nuevo Caso de Éxito',
-            desc: 'Cómo ayudamos a resolver este reto',
-            problem: '¿Cómo ayudamos?: Reto o problema que enfrentaba el cliente',
-            solution: '¿Cómo se resolvió?: Estrategia aplicada y resultado tangible obtenido',
+            type: 'solucion',
+            title: 'Nueva Solución o Caso',
+            desc: '',
+            problem: '',
+            intervention: '',
+            scope: '',
+            solution: '',
+            evidenceUrl: '',
+            evidenceLabel: '',
             ctaText: '¿Tienes una necesidad similar?',
-            ctaMessage: `Hola ${formData.shortName || formData.name}, vi tu tarjeta digital y me interesa resolver un reto similar.`
+            ctaMessage: `Hola ${formData.shortName || formData.name}, vi tu tarjeta digital y me interesa platicar sobre este servicio.`
           }
         ]
       }));
@@ -131,6 +138,34 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       solutions: prev.solutions.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Process Steps updater (Apartado UX04: 2-3 pasos)
+  const handleProcessStepChange = (index: number, key: keyof CardProcessStep, val: any) => {
+    const steps = [...(formData.processSteps || [])];
+    steps[index] = { ...steps[index], [key]: val, step: index + 1 };
+    setFormData((prev) => ({ ...prev, processSteps: steps }));
+  };
+
+  const handleAddProcessStep = () => {
+    const steps = [...(formData.processSteps || [])];
+    if (steps.length < 3) {
+      steps.push({
+        step: steps.length + 1,
+        title: '',
+        desc: '',
+        expectation: ''
+      });
+      setFormData((prev) => ({ ...prev, processSteps: steps }));
+    }
+  };
+
+  const handleRemoveProcessStep = (index: number) => {
+    const steps = (formData.processSteps || []).filter((_, i) => i !== index).map((s, i) => ({ ...s, step: i + 1 }));
+    setFormData((prev) => ({
+      ...prev,
+      processSteps: steps.length > 0 ? steps : undefined
     }));
   };
 
@@ -776,7 +811,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         <span className="w-5 h-5 rounded-full bg-[#00685f] text-white text-[11px] font-bold flex items-center justify-center">
                           {idx + 1}
                         </span>
-                        <span className="text-xs font-bold text-stone-700">Caso / Reto de Resolución #{idx + 1}</span>
+                        <span className="text-xs font-bold text-stone-700">Entrada #{idx + 1}: {sol.type === 'caso' ? 'Caso Documentado' : sol.type === 'solucion' ? 'Solución Ofrecida' : 'Entrada General'}</span>
                       </div>
                       {formData.solutions.length > 1 && (
                         <button
@@ -790,22 +825,52 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       )}
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">Título del Reto o Servicio</label>
-                      <input
-                        type="text"
-                        value={sol.title}
-                        onChange={(e) => handleSolutionChange(idx, 'title', e.target.value)}
-                        placeholder="Ej. Desarrollo de Alianzas Comerciales"
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs bg-white font-medium focus:border-[#00685f] focus:outline-none"
-                        required
-                      />
+                    {/* Clasificación de Tipo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                          Tipo de Entrada
+                        </label>
+                        <select
+                          value={sol.type || 'sin_clasificar'}
+                          onChange={(e) => handleSolutionChange(idx, 'type', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs bg-white font-medium focus:border-[#00685f] focus:outline-none"
+                        >
+                          <option value="sin_clasificar">Sin clasificar (Registro previo)</option>
+                          <option value="solucion">Solución ofrecida</option>
+                          <option value="caso">Caso documentado</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                          Título del Servicio o Caso
+                        </label>
+                        <input
+                          type="text"
+                          value={sol.title}
+                          onChange={(e) => handleSolutionChange(idx, 'title', e.target.value)}
+                          placeholder="Ej. Desarrollo de Alianzas Comerciales"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs bg-white font-medium focus:border-[#00685f] focus:outline-none"
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Aviso para entradas sin clasificar */}
+                    {(!sol.type || sol.type === 'sin_clasificar') && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2 text-amber-900 text-[11px] leading-relaxed">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Entrada pendiente de clasificación:</span> Selecciona si corresponde a una <strong>Solución ofrecida</strong> (servicio actual con intervención y alcance) o a un <strong>Caso documentado</strong> (trabajo previo con resultado y evidencia) para activar los campos y etiquetas recomendadas.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reto, Intervención y Alcance */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/60">
                         <label className="block text-[10px] font-extrabold uppercase tracking-wider text-amber-800 mb-1">
-                          1. ¿Cómo ayudamos? (El problema o reto)
+                          {sol.type === 'caso' ? 'Situación Inicial' : 'Reto / Dolor Atendido'}
                         </label>
                         <textarea
                           rows={2}
@@ -816,23 +881,73 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         />
                       </div>
 
+                      <div className="p-2.5 bg-blue-50/70 rounded-xl border border-blue-200/60">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-blue-800 mb-1">
+                          {sol.type === 'caso' ? 'Qué se Hizo' : 'Intervención Concreta'}
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={sol.intervention || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'intervention', e.target.value)}
+                          placeholder="¿Qué hace el titular o qué proceso aplica?"
+                          className="w-full px-2 py-1 rounded-lg border border-blue-200 text-xs bg-white focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                          Alcance / Entregable
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={sol.scope || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'scope', e.target.value)}
+                          placeholder="¿Qué recibe la persona o qué incluye?"
+                          className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resultado Tangible y Evidencia */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div className="p-2.5 bg-teal-50/70 rounded-xl border border-teal-200/60">
                         <label className="block text-[10px] font-extrabold uppercase tracking-wider text-teal-800 mb-1">
-                          2. ¿Cómo se resolvió? (La acción y resultado)
+                          {sol.type === 'caso' ? 'Resultado Documentado / Cambio' : 'Avance o Resultado Facilitado'}
                         </label>
                         <textarea
                           rows={2}
                           value={sol.solution || ''}
                           onChange={(e) => handleSolutionChange(idx, 'solution', e.target.value)}
-                          placeholder="¿Qué estrategia se aplicó y qué resultado medible se logró?"
+                          placeholder="¿Qué cambio se logró o qué avance tangible facilita?"
                           className="w-full px-2 py-1 rounded-lg border border-teal-200 text-xs bg-white focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-200/60 space-y-1">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-sky-800">
+                          Evidencia Comprobable (URL o Entregable)
+                        </label>
+                        <input
+                          type="url"
+                          value={sol.evidenceUrl || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'evidenceUrl', e.target.value)}
+                          placeholder="https://... (enlace público a evidencia)"
+                          className="w-full px-2 py-1 rounded-lg border border-sky-200 text-xs bg-white font-mono focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={sol.evidenceLabel || ''}
+                          onChange={(e) => handleSolutionChange(idx, 'evidenceLabel', e.target.value)}
+                          placeholder="Texto del enlace (ej. Ver caso en portafolio)"
+                          className="w-full px-2 py-0.5 rounded-lg border border-sky-200 text-xs bg-white focus:outline-none"
                         />
                       </div>
                     </div>
 
+                    {/* Llamado a la Acción Específico */}
                     <div className="p-2.5 bg-white rounded-xl border border-stone-200">
                       <label className="block text-[10px] font-extrabold uppercase tracking-wider text-stone-600 mb-1">
-                        3. ¿Tienes una necesidad similar? (Llamado a la acción)
+                        Llamado a la acción contextual
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
@@ -853,6 +968,102 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* SUB-SECCIÓN UX04: Bloque de Proceso ("Cómo se empieza" / "Cómo trabajamos", Opcional 2-3 pasos) */}
+              <div className="pt-4 border-t border-stone-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="font-bold text-stone-800 text-xs sm:text-sm flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-[#00685f]" />
+                      <span>Proceso de Trabajo: Cómo se empieza (Opcional, 2 a 3 pasos)</span>
+                    </h5>
+                    <p className="text-[11px] text-stone-500">
+                      Explica qué sucede y qué puede preparar o esperar la persona (ej. Conversación inicial sin compromiso • Diagnóstico • Inicio).
+                    </p>
+                  </div>
+                  {(!formData.processSteps || formData.processSteps.length < 3) && (
+                    <button
+                      type="button"
+                      onClick={handleAddProcessStep}
+                      className="text-xs text-[#00685f] hover:underline flex items-center gap-1 font-semibold cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Agregar Paso ({formData.processSteps?.length || 0}/3)</span>
+                    </button>
+                  )}
+                </div>
+
+                {formData.processSteps && formData.processSteps.length > 0 ? (
+                  <div className="space-y-3">
+                    {formData.processSteps.map((step, sIdx) => (
+                      <div key={sIdx} className="p-3.5 rounded-xl border border-stone-200 bg-stone-50/80 space-y-2.5">
+                        <div className="flex items-center justify-between border-b border-stone-200/60 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-[#00685f] text-white text-[10px] font-bold flex items-center justify-center">
+                              0{sIdx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-stone-800">
+                              Paso {sIdx + 1}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProcessStep(sIdx)}
+                            className="text-stone-400 hover:text-red-600 transition-colors cursor-pointer p-1 rounded-lg hover:bg-red-50"
+                            title="Eliminar este paso"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                              Título del paso
+                            </label>
+                            <input
+                              type="text"
+                              value={step.title}
+                              onChange={(e) => handleProcessStepChange(sIdx, 'title', e.target.value)}
+                              placeholder="Ej. Conversación de orientación inicial"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs bg-white font-medium focus:outline-none focus:border-[#00685f]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                              Expectativa o duración (opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={step.expectation || ''}
+                              onChange={(e) => handleProcessStepChange(sIdx, 'expectation', e.target.value)}
+                              placeholder="Ej. Llamada de 20 min • Sin compromiso"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs bg-white focus:outline-none focus:border-[#00685f]"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                            Qué hace el titular y qué recibe la persona
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={step.desc}
+                            onChange={(e) => handleProcessStepChange(sIdx, 'desc', e.target.value)}
+                            placeholder="Describe brevemente qué se revisa y qué claridad o siguiente paso se define..."
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs bg-white focus:outline-none focus:border-[#00685f]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl border border-dashed border-stone-300 text-center text-stone-500 text-xs">
+                    No hay pasos de proceso definidos. Pulsa «Agregar Paso» si deseas mostrar a los visitantes cómo es el comienzo o secuencia de tu atención (2 a 3 pasos).
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ParticipantProfile, CardTheme } from '../types/card';
 import { ProfileFeatures } from '../types/meeting';
 import { CardStats, ActivityEvent, NetworkingInsight } from '../types/analytics';
 import { getStoredStats, getStoredEvents, extractNetworkingInsights } from '../utils/analytics';
+import {
+  PROFESSIONAL_PROFILES,
+  ALL_PROFESSIONAL_PROFILE_IDS,
+  DEFAULT_PROFESSIONAL_PROFILE
+} from '../data/professionalProfiles';
 import {
   Users,
   Eye,
@@ -37,9 +42,14 @@ import {
   Send,
   Smartphone,
   Home,
-  Mic
+  Mic,
+  Rocket,
+  Building2
 } from 'lucide-react';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ReadyToLaunchBoard } from './ReadyToLaunchBoard';
+import { InviteClientModal } from './InviteClientModal';
+import { CompanyManagerView } from './CompanyManagerView';
 
 interface AdminDashboardProps {
   profiles: ParticipantProfile[];
@@ -57,6 +67,9 @@ interface AdminDashboardProps {
   onOpenDelivery?: (publicId: string) => void;
   onBackHome?: () => void;
   onUpdateProfileFeatures?: (publicId: string, features: Partial<ProfileFeatures>) => void;
+  onOpenOnboardingWizard?: () => void;
+  onUpdateProfiles?: (updater: (prev: ParticipantProfile[]) => ParticipantProfile[]) => void;
+  onOpenCompanyDirectory?: (slug: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -74,16 +87,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogoutAdmin,
   onOpenDelivery,
   onBackHome,
-  onUpdateProfileFeatures
+  onUpdateProfileFeatures,
+  onOpenOnboardingWizard,
+  onUpdateProfiles,
+  onOpenCompanyDirectory
 }) => {
   const [profileToDelete, setProfileToDelete] = useState<ParticipantProfile | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isEditingPin, setIsEditingPin] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [newPinValue, setNewPinValue] = useState(adminPin);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<string>('all');
+  const [selectedProfileType, setSelectedProfileType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [timeRange, setTimeRange] = useState<'today' | '7d' | '30d' | 'all'>('7d');
+  const [activeView, setActiveView] = useState<'metrics' | 'directory' | 'companies' | 'launch_board'>('metrics');
+  const [directoryFilter, setDirectoryFilter] = useState<'all' | 'demos' | string>('all');
+
+  const directoryProfiles = profiles.filter((p) => {
+    if (directoryFilter === 'all') return true;
+    if (directoryFilter === 'demos') return p.publicId.startsWith('demo-');
+    return p.professionalProfile === directoryFilter;
+  });
 
   const stats = getStoredStats();
   const events = getStoredEvents();
@@ -126,13 +152,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       p.city.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchTheme = selectedTheme === 'all' || p.themeKey === selectedTheme;
+    const matchProfileType =
+      selectedProfileType === 'all' ||
+      (p.professionalProfile || DEFAULT_PROFESSIONAL_PROFILE) === selectedProfileType;
     const matchStatus =
       selectedStatus === 'all' ||
       (selectedStatus === 'active' && p.published) ||
       (selectedStatus === 'paused' && !p.published);
 
-    return matchSearch && matchTheme && matchStatus;
+    return matchSearch && matchTheme && matchStatus && matchProfileType;
   });
+
+  // High-volume pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTheme, selectedProfileType, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProfiles.length / pageSize));
+  const paginatedProfiles = filteredProfiles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Export CSV summary
   const handleExportCSV = () => {
@@ -140,6 +180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Nombre',
       'Empresa',
       'Especialidad',
+      'Perfil Profesional',
       'Ciudad',
       'Tema',
       'Estado',
@@ -161,6 +202,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         `"${p.name}"`,
         `"${p.company}"`,
         `"${p.role}"`,
+        `"${PROFESSIONAL_PROFILES[p.professionalProfile || DEFAULT_PROFESSIONAL_PROFILE]?.name.es || 'Profesional Independiente'}"`,
         `"${p.city}"`,
         p.themeKey,
         p.published ? 'Activa' : 'Pausada',
@@ -205,21 +247,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Navigation View Switcher */}
+          <div className="flex items-center gap-1.5 p-1 bg-stone-100 rounded-xl border border-stone-200 flex-wrap">
             <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-[12px] font-semibold text-stone-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+              onClick={() => setActiveView('metrics')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'metrics'
+                  ? 'bg-white text-stone-900 shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Exportar CSV</span>
+              <TrendingUp className="w-3.5 h-3.5 text-teal-600" />
+              <span>Gestión & Métricas</span>
             </button>
             <button
-              onClick={onOpenCreateProfile}
-              className="px-3.5 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#008378] text-white text-[12px] font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              onClick={() => setActiveView('directory')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'directory'
+                  ? 'bg-[#00685f] text-white shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Nueva Tarjeta</span>
+              <Sparkles className={`w-3.5 h-3.5 ${activeView === 'directory' ? 'text-teal-200' : 'text-[#00685f]'}`} />
+              <span>Tarjetas Activas y Arquetipos</span>
             </button>
+            <button
+              onClick={() => setActiveView('companies')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'companies'
+                  ? 'bg-stone-900 text-white shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Building2 className={`w-3.5 h-3.5 ${activeView === 'companies' ? 'text-teal-400' : 'text-stone-500'}`} />
+              <span>Empresas & Equipos</span>
+            </button>
+            <button
+              onClick={() => setActiveView('launch_board')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer relative ${
+                activeView === 'launch_board'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Rocket className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ready to Launch (1,000 Tarjetas)</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {activeView === 'metrics' && (
+              <>
+                <button
+                  onClick={handleExportCSV}
+                  className="px-3 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-[12px] font-semibold text-stone-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Exportar CSV</span>
+                </button>
+                <button
+                  onClick={() => setIsInviteModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[12px] font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title="Generar y enviar enlace de alta al cliente por WhatsApp o Correo"
+                >
+                  <Send className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Enviar Alta a Cliente</span>
+                </button>
+                <button
+                  onClick={onOpenCreateProfile}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#008378] text-white text-[12px] font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nueva Tarjeta</span>
+                </button>
+              </>
+            )}
             {onLogoutAdmin && (
               <button
                 onClick={onLogoutAdmin}
@@ -253,8 +356,196 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6 w-full">
-        {/* Security & Privacy Reassurance Banner */}
-        <div className="bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-emerald-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {activeView === 'companies' ? (
+          <CompanyManagerView
+            profiles={profiles}
+            onUpdateProfiles={onUpdateProfiles || (() => {})}
+            onOpenCardPreview={onOpenCardPreview}
+            onOpenCompanyDirectory={onOpenCompanyDirectory || ((slug) => { window.location.href = `/e/${slug}`; })}
+            onShowToast={onShowToast}
+          />
+        ) : activeView === 'launch_board' ? (
+          <ReadyToLaunchBoard
+            profilesCount={profiles.length}
+            onShowToast={onShowToast}
+            onOpenCreateProfile={onOpenCreateProfile}
+          />
+        ) : activeView === 'directory' ? (
+          <div className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 gap-4">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-widest text-[#00685f]">
+                  Portafolio y Demostraciones
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-stone-900 mt-1">
+                  Tarjetas Activas y Arquetipos Oficiales
+                </h2>
+                <p className="text-xs text-stone-500 mt-1">
+                  Explora los 7 arquetipos profesionales diseñados para RedConecta MX • Tribu Creativa QRO.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveView('metrics')}
+                className="text-xs font-bold text-[#00685f] hover:underline flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <span>Volver a Gestión & Métricas</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none mb-6">
+              <button
+                onClick={() => setDirectoryFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'all'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                Todos ({profiles.length})
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('demos')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                  directoryFilter === 'demos'
+                    ? 'bg-[#00685f] text-white shadow-xs'
+                    : 'bg-teal-50 text-[#00685f] border border-teal-200 hover:bg-teal-100'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>7 Arquetipos Demo</span>
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('profesional_independiente')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'profesional_independiente'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                A. Consultor
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('comercial_asesor')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'comercial_asesor'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                B. Comercial
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('emprendedor_solopreneur')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'emprendedor_solopreneur'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                C. Emprendedor
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('empresario_dueno')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'empresario_dueno'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                D. Empresario
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('ejecutivo_directivo')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'ejecutivo_directivo'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                E. Ejecutivo
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('salud')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'salud'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                F. Salud
+              </button>
+              <button
+                onClick={() => setDirectoryFilter('institucional_publico')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  directoryFilter === 'institucional_publico'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                G. Institucional
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {directoryProfiles.map((p) => {
+                const isDemo = p.publicId.startsWith('demo-');
+                return (
+                  <div
+                    key={p.publicId}
+                    className={`bg-[#f9f9f8] p-5 rounded-3xl border ${
+                      isDemo ? 'border-teal-300/80 bg-gradient-to-b from-teal-50/20 to-[#f9f9f8]' : 'border-stone-200'
+                    } hover:border-teal-400 transition-all shadow-2xs hover:shadow-xs flex flex-col justify-between group`}
+                  >
+                    <div>
+                      {isDemo && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 text-[9.5px] font-extrabold border border-amber-200 mb-2.5">
+                          <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                          <span>DEMO OFICIAL • ARQUETIPO</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={p.avatarUrl}
+                          alt={p.name}
+                          className="w-12 h-12 rounded-2xl object-cover border border-stone-200 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-sm text-stone-900 truncate group-hover:text-[#00685f] transition-colors">
+                            {p.name}
+                          </h3>
+                          <p className="text-xs text-[#00685f] font-semibold truncate">{p.role}</p>
+                          <p className="text-[11px] text-stone-500 truncate">{p.company}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-stone-200/80 flex items-center justify-between">
+                      <button
+                        onClick={() => onOpenCardPreview(p.publicId)}
+                        className="text-xs font-bold text-stone-700 hover:text-[#00685f] flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ver Tarjeta</span>
+                      </button>
+
+                      <button
+                        onClick={() => onOpenCardPreview(p.publicId)}
+                        className="text-[10px] font-bold text-teal-800 bg-teal-100/70 hover:bg-teal-200/70 px-2.5 py-1 rounded-full cursor-pointer transition-colors"
+                      >
+                        Visitar micrositio →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Security & Privacy Reassurance Banner */}
+            <div className="bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-emerald-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-800/80 border border-emerald-600 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5 text-emerald-300" />
@@ -540,6 +831,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <select
+                value={selectedProfileType}
+                onChange={(e) => setSelectedProfileType(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs bg-stone-50 text-stone-700 focus:outline-none"
+              >
+                <option value="all">Todos los Perfiles</option>
+                {ALL_PROFESSIONAL_PROFILE_IDS.map((pid) => (
+                  <option key={pid} value={pid}>
+                    {PROFESSIONAL_PROFILES[pid].name.es}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={selectedTheme}
                 onChange={(e) => setSelectedTheme(e.target.value)}
                 className="px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs bg-stone-50 text-stone-700 focus:outline-none"
@@ -568,6 +872,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <thead>
                 <tr className="border-b border-stone-200 text-[#6d7a77] uppercase tracking-wider text-[10px] font-bold">
                   <th className="py-3 px-3">Participante</th>
+                  <th className="py-3 px-3">Perfil Profesional</th>
                   <th className="py-3 px-3">Tema</th>
                   <th className="py-3 px-3 text-center">Estado (Activar / Pausar)</th>
                   <th className="py-3 px-3 text-center">Módulos (CRM / AI)</th>
@@ -579,7 +884,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {filteredProfiles.map((p, idx) => {
+                {paginatedProfiles.map((p, idx) => {
                   const s = stats[p.publicId] || {
                     views: 0,
                     vcardDownloads: 0,
@@ -609,6 +914,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span className="font-mono text-[10px] text-teal-700">/c/{p.publicId}</span>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Professional Profile */}
+                      <td className="py-3 px-3">
+                        <span className="inline-block text-[10px] px-2 py-0.5 rounded font-bold bg-teal-50 text-teal-800 border border-teal-200/80">
+                          {PROFESSIONAL_PROFILES[p.professionalProfile || DEFAULT_PROFESSIONAL_PROFILE]?.badgeLabel.es || 'Independiente'}
+                        </span>
                       </td>
 
                       {/* Theme */}
@@ -781,6 +1093,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls for High Volume Scale */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-stone-200 text-xs text-stone-600">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>
+                Mostrando {filteredProfiles.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} a{' '}
+                {Math.min(currentPage * pageSize, filteredProfiles.length)} de {filteredProfiles.length} tarjetas
+              </span>
+              <span className="text-stone-300">|</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-stone-500">Por página:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-stone-200 bg-stone-50 text-stone-800 text-xs focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-2.5 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                Anterior
+              </button>
+              <span className="px-2 font-bold text-stone-700">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="px-2.5 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 5. Live Activity Feed (Últimos eventos registrados) */}
@@ -839,6 +1200,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             })}
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* Confirm Delete Card Modal */}
@@ -853,6 +1216,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }}
         profile={profileToDelete}
         canDelete={profiles.length > 1}
+      />
+
+      {/* Invite Client (Concierge Onboarding) Modal */}
+      <InviteClientModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onShowToast={onShowToast}
+        onOpenWizardNow={onOpenOnboardingWizard}
       />
     </div>
   );

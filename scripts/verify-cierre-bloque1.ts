@@ -1,0 +1,494 @@
+import {
+  generateUniqueSlug,
+  generateUniqueUid,
+  duplicateMemberCard,
+  createMemberFromCorporateTemplate,
+  resetIssuedIdentifiersForTesting,
+  DEFAULT_COMPANIES
+} from '../src/services/companyService';
+import { ParticipantProfile } from '../src/types/card';
+import { getLeadsForProfile } from '../src/services/leadService';
+import { getStoredStats } from '../src/utils/analytics';
+
+let passed = 0;
+let failed = 0;
+
+function assert(cond: boolean, desc: string) {
+  if (cond) {
+    passed++;
+    console.log(`  ✅ ${desc}`);
+  } else {
+    failed++;
+    console.error(`  ❌ FAIL: ${desc}`);
+  }
+}
+
+// Mock localStorage for deterministic isolated testing
+const mockStorage: Record<string, string> = {};
+(globalThis as any).window = (globalThis as any).window || {};
+(globalThis as any).window.localStorage = {
+  getItem: (key: string) => (key in mockStorage ? mockStorage[key] : null),
+  setItem: (key: string, val: string) => {
+    mockStorage[key] = String(val);
+  },
+  removeItem: (key: string) => {
+    delete mockStorage[key];
+  },
+  clear: () => {
+    Object.keys(mockStorage).forEach((k) => delete mockStorage[k]);
+  }
+};
+(globalThis as any).localStorage = (globalThis as any).window.localStorage;
+
+async function runTests() {
+  console.log('🧪 Iniciando Verificación: CIERRE CONJUNTO — PRIMER BLOQUE: IDENTIFICADORES Y DUPLICACIÓN\n');
+  resetIssuedIdentifiersForTesting();
+
+  // Benchmark existing profiles pool
+  const existingProfiles: ParticipantProfile[] = [
+    {
+      publicId: 'demo-jorge-herrera',
+      uid: 'MX-CORP-2026-001',
+      published: true,
+      verified: true,
+      name: 'Jorge Herrera Díaz',
+      shortName: 'Jorge Herrera',
+      role: 'Director Técnico de Operaciones',
+      company: 'Nexo Operativo',
+      companyId: 'company-nexo-operativo',
+      companySlug: 'nexo-operativo',
+      city: 'Querétaro',
+      phone: '+524425556677',
+      email: 'jorge@nexooperativo.mx',
+      pin: '7788',
+      fiscalData: {
+        requiresInvoice: true,
+        rfc: 'HEDJ800101XYZ',
+        razonSocial: 'Jorge Herrera Diaz',
+        codigoPostal: '76000'
+      },
+      calendarUrl: 'https://calendly.com/jorge-nexo',
+      introVideo: {
+        title: 'Video Pitch Operaciones',
+        url: 'https://youtube.com/watch?v=mock123'
+      },
+      testimonials: [
+        {
+          name: 'Ing. Carlos Ramos',
+          role: 'Gerente de Planta',
+          comment: 'Excelente soporte en paros críticos'
+        }
+      ],
+      whatsappCustomMessage: 'Hola Jorge, requiero una cotización técnica para planta',
+      operatorContext: {
+        titularGoal: 'Cerrar 3 contratos industriales anuales'
+      },
+      status: 'En planta',
+      statusActive: true,
+      avatarUrl: 'https://example.com/jorge.jpg',
+      avatarAlt: 'Foto de Jorge Herrera',
+      themeKey: 'negocio',
+      bannerTheme: 'default',
+      customPrimaryColor: '#047857',
+      customAccentColor: '#10b981',
+      valueProp: 'Aseguro la continuidad operativa en plantas industriales.',
+      solutions: [
+        {
+          title: 'Auditoría Técnica de Planta',
+          desc: 'Revisión técnica de líneas críticas en sitio',
+          problem: 'Fallas no programadas en motores principales',
+          intervention: 'Termografía y análisis de vibraciones',
+          scope: 'Reporte con acciones correctivas inmediatas',
+          solution: 'Eliminación del riesgo de paro no programado',
+          ctaMessage: 'Hola Jorge, me interesa la Auditoría Técnica'
+        }
+      ],
+      processSteps: [
+        { step: 1, title: 'Diagnóstico en Sitio', desc: 'Levantamiento de fallas' }
+      ],
+      networkingTargets: ['Gerentes de Mantenimiento'],
+      links: [
+        { label: 'Catálogo Nexo', url: 'https://nexooperativo.mx/catalogo', icon: 'book' }
+      ],
+      socialLinks: {
+        linkedin: 'https://linkedin.com/in/jorge-herrera-personal',
+        website: 'https://nexooperativo.mx'
+      },
+      primaryAction: {
+        actionType: 'whatsapp',
+        label: 'Solicitar diagnóstico',
+        customMessage: 'Hola Jorge, vi tu tarjeta y requiero diagnóstico'
+      },
+      customFields: {
+        bookingUrl: 'https://agenda-jorge.com',
+        licenseId: 'CED-FED-998877'
+      },
+      features: {
+        hasMiniCrm: true,
+        hasMeetingIntelligence: false,
+        aiMinutesQuota: 0,
+        aiMinutesUsed: 0
+      },
+      professionalProfile: 'empresario_dueno'
+    },
+    {
+      publicId: 'tarjeta-existente-2',
+      uid: 'MX-CORP-2026-002',
+      published: true,
+      verified: true,
+      name: 'Otro Miembro',
+      shortName: 'Miembro',
+      role: 'Asesor',
+      company: 'Nexo Operativo',
+      city: 'Querétaro',
+      phone: '',
+      email: '',
+      status: 'Activo',
+      statusActive: true,
+      avatarUrl: '',
+      avatarAlt: '',
+      themeKey: 'negocio',
+      bannerTheme: 'default',
+      valueProp: 'Asesoría',
+      solutions: [],
+      networkingTargets: [],
+      links: []
+    }
+  ];
+
+  // ===========================================================================
+  // 1. Identificadores Únicos y Resolución de Colisiones
+  // ===========================================================================
+  console.log('📌 1. Identificadores Únicos y Resolución de Colisiones (generateUniqueSlug / generateUniqueUid)');
+
+  // 1.1 Non-colliding candidate returns normalized candidate
+  const freeSlug = generateUniqueSlug('nuevo-ingeniero-planta', { existingProfiles });
+  assert(freeSlug === 'nuevo-ingeniero-planta', 'Candidato disponible se genera sin alterar');
+
+  // 1.2 Collision with existing profile generates -2 or next free numeric suffix
+  const collidingSlug = generateUniqueSlug('demo-jorge-herrera', { existingProfiles });
+  assert(collidingSlug === 'demo-jorge-herrera-2', 'Colisión con "demo-jorge-herrera" resuelve automáticamente a "demo-jorge-herrera-2"');
+
+  // 1.3 Collision with existing profile ending with number (tarjeta-existente-2) increments to 3
+  const collidingNumSlug = generateUniqueSlug('tarjeta-existente-2', { existingProfiles });
+  assert(collidingNumSlug === 'tarjeta-existente-3', 'Colisión con slug terminado en número "tarjeta-existente-2" incrementa a "tarjeta-existente-3"');
+
+  // 1.4 Reserved slug protection (e.g. "admin", "studio", "dashboard", "crm")
+  const reservedAttempt = generateUniqueSlug('admin', { existingProfiles });
+  assert(reservedAttempt !== 'admin' && reservedAttempt.startsWith('admin-'), 'Palabra reservada "admin" es protegida y no se asigna en limpio');
+
+  const crmReservedAttempt = generateUniqueSlug('crm', { existingProfiles });
+  assert(crmReservedAttempt !== 'crm' && crmReservedAttempt.startsWith('crm-'), 'Palabra reservada "crm" es protegida y no se asigna en limpio');
+
+  // 1.5 Special characters and accents normalization
+  const accentSlug = generateUniqueSlug('Dr. Cuauhtémoc Álvarez & Cía.', { existingProfiles });
+  assert(accentSlug === 'dr-cuauhtemoc-alvarez-cia', 'Caracteres especiales y acentos se normalizan limpiamente a formato URL');
+
+  // 1.6 UID uniqueness
+  const uid1 = generateUniqueUid('MX-CORP', { existingProfiles });
+  assert(!existingProfiles.some((p) => p.uid === uid1), 'Nuevo UID generado no colisiona con UIDs existentes');
+  assert(uid1.startsWith('MX-CORP-'), 'UID respeta prefijo institucional MX-CORP');
+
+  // ===========================================================================
+  // 2. Duplicaciones y Altas Simultáneas en el Mismo Milisegundo
+  // ===========================================================================
+  console.log('\n⚡ 2. Duplicaciones y Altas Simultáneas en el Mismo Milisegundo');
+
+  // 2.1 100 simultaneous duplications of the same card in the exact same synchronous tick
+  const simDuplicationSlugs: string[] = [];
+  const simDuplicationUids: string[] = [];
+  const nexoCompany = DEFAULT_COMPANIES[0];
+
+  for (let i = 0; i < 100; i++) {
+    const copy = duplicateMemberCard(existingProfiles[0], { existingProfiles });
+    simDuplicationSlugs.push(copy.publicId);
+    simDuplicationUids.push(copy.uid);
+  }
+
+  const uniqueDupeSlugs = new Set(simDuplicationSlugs);
+  const uniqueDupeUids = new Set(simDuplicationUids);
+  assert(
+    uniqueDupeSlugs.size === 100,
+    `100 duplicaciones simultáneas en el mismo milisegundo producen 100 slugs únicos (obtenidos: ${uniqueDupeSlugs.size})`
+  );
+  assert(
+    uniqueDupeUids.size === 100,
+    `100 duplicaciones simultáneas en el mismo milisegundo producen 100 UIDs únicos (obtenidos: ${uniqueDupeUids.size})`
+  );
+
+  // 2.2 100 simultaneous template creations in the exact same synchronous tick
+  const simTemplateSlugs: string[] = [];
+  const simTemplateUids: string[] = [];
+
+  for (let i = 0; i < 100; i++) {
+    const created = createMemberFromCorporateTemplate(
+      nexoCompany,
+      {
+        name: 'Integrante Simultáneo',
+        role: 'Técnico de Planta',
+        department: 'Operaciones & Planta'
+      },
+      { existingProfiles }
+    );
+    simTemplateSlugs.push(created.publicId);
+    simTemplateUids.push(created.uid);
+  }
+
+  const uniqueTemplateSlugs = new Set(simTemplateSlugs);
+  const uniqueTemplateUids = new Set(simTemplateUids);
+  assert(
+    uniqueTemplateSlugs.size === 100,
+    `100 altas simultáneas desde plantilla producen 100 slugs únicos (obtenidos: ${uniqueTemplateSlugs.size})`
+  );
+  assert(
+    uniqueTemplateUids.size === 100,
+    `100 altas simultáneas desde plantilla producen 100 UIDs únicos (obtenidos: ${uniqueTemplateUids.size})`
+  );
+
+  // ===========================================================================
+  // 3. Duplicación Mediante Campos Permitidos de Plantilla (Allowlist & Sanitization)
+  // ===========================================================================
+  console.log('\n🧹 3. Duplicación Mediante Campos Permitidos de Plantilla (Allowlist & Sanitización)');
+
+  const original = existingProfiles[0];
+  const duplicated = duplicateMemberCard(original, {
+    department: 'Mantenimiento Preventivo',
+    roleStatement: 'Coordina mantenimiento predictivo y monitoreo.',
+    existingProfiles
+  });
+
+  // 3.1 Draft state and no inherited verification
+  assert(duplicated.published === false, 'La copia inicia estrictamente como borrador (published: false)');
+  assert(duplicated.verified === false, 'La verificación NO se hereda (verified: false)');
+  assert(duplicated.showInDirectory === false, 'No se expone en directorio público hasta revisión (showInDirectory: false)');
+  assert(duplicated.isCompanyActive === true, 'Membresía corporativa inicia activa');
+
+  // 3.2 Personal data strictly wiped
+  assert(duplicated.name === '', 'Nombre personal vaciado estrictamente');
+  assert(duplicated.shortName === '', 'Nombre corto personal vaciado');
+  assert(duplicated.phone === '', 'Teléfono personal vaciado');
+  assert(duplicated.email === '', 'Correo personal vaciado');
+  assert(duplicated.avatarUrl === '', 'Avatar / foto personal vaciado');
+  assert(duplicated.avatarAlt === '', 'Texto alternativo de foto vaciado');
+
+  // 3.3 Fiscal data strictly wiped
+  assert(duplicated.fiscalData === undefined, 'Datos fiscales (CFDI 4.0 / RFC) del titular anterior completamente eliminados');
+
+  // 3.4 Credentials and operator context strictly wiped
+  assert(duplicated.pin === undefined, 'PIN de acceso del titular anterior completamente eliminado');
+  assert(duplicated.operatorContext === undefined, 'Notas privadas y objetivos del operador completamente eliminados');
+
+  // 3.5 Agenda, presentations and testimonials strictly wiped
+  assert(duplicated.calendarUrl === undefined, 'Agenda personal (calendarUrl) completamente eliminada');
+  assert(duplicated.introVideo === undefined, 'Video pitch / presentación personal anterior completamente eliminado');
+  assert(Array.isArray(duplicated.testimonials) && duplicated.testimonials.length === 0, 'Testimonios del titular anterior reseteados a lista vacía');
+
+  // 3.6 Specific messages strictly wiped
+  assert(duplicated.whatsappCustomMessage === undefined, 'Mensaje prellenado de WhatsApp del titular anterior eliminado');
+  assert(
+    duplicated.primaryAction?.customMessage === undefined,
+    'Mensaje prellenado de la acción principal eliminado'
+  );
+  assert(
+    duplicated.solutions.every((s) => s.ctaMessage === undefined),
+    'Mensajes de WhatsApp específicos de soluciones anteriores eliminados'
+  );
+  assert(
+    duplicated.customFields?.bookingUrl === undefined,
+    'Enlace de reserva personal en customFields eliminado'
+  );
+  assert(
+    duplicated.customFields?.licenseId === undefined,
+    'Cédula profesional personal en customFields eliminada'
+  );
+
+  // 3.7 Corporate configuration correctly preserved
+  assert(duplicated.company === original.company, 'Nombre de la empresa corporativa preservado');
+  assert(duplicated.companyId === original.companyId, 'ID corporativo preservado');
+  assert(duplicated.companySlug === original.companySlug, 'Slug corporativo preservado');
+  assert(duplicated.companyDepartment === 'Mantenimiento Preventivo', 'Departamento asignado a la nueva tarjeta preservado');
+  assert(duplicated.companyRoleStatement === 'Coordina mantenimiento predictivo y monitoreo.', 'Declaración de rol asignada preservada');
+  assert(duplicated.themeKey === original.themeKey, 'Tema visual corporativo preservado');
+  assert(duplicated.customPrimaryColor === original.customPrimaryColor, 'Color primario corporativo preservado');
+  assert(duplicated.customAccentColor === original.customAccentColor, 'Color de acento corporativo preservado');
+  assert(duplicated.solutions.length === original.solutions.length, 'Estructura de soluciones corporativas preservada');
+  assert(duplicated.links.length === original.links.length, 'Enlaces corporativos preservados');
+  assert(duplicated.socialLinks?.website === 'https://nexooperativo.mx', 'Sitio web corporativo en socialLinks preservado');
+  assert(duplicated.socialLinks?.linkedin === undefined, 'Perfil de LinkedIn personal del titular anterior eliminado de socialLinks');
+
+  // ===========================================================================
+  // 4. Independencia Estructural Absoluta entre Original y Copia (Deep Clone)
+  // ===========================================================================
+  console.log('\n🧬 4. Independencia Estructural Absoluta entre Original y Copia (Deep Clone)');
+
+  // 4.1 Mutate solutions in copy
+  const originalSolTitle = original.solutions[0].title;
+  const originalSolDesc = original.solutions[0].desc;
+  duplicated.solutions[0].title = 'Solución Mutada en la Copia';
+  duplicated.solutions[0].desc = 'Descripción alterada exclusivamente en la copia';
+  assert(
+    original.solutions[0].title === originalSolTitle,
+    'Modificar solution.title en la copia NO muta el original'
+  );
+  assert(
+    original.solutions[0].desc === originalSolDesc,
+    'Modificar solution.desc en la copia NO muta el original'
+  );
+
+  // 4.2 Mutate links array in copy
+  const originalLinksCount = original.links.length;
+  duplicated.links.push({ label: 'Nuevo Enlace Infiltrado', url: 'https://hacker.com', icon: 'alert' });
+  assert(
+    original.links.length === originalLinksCount,
+    'Hacer push a copy.links NO modifica el array original.links'
+  );
+
+  // 4.3 Mutate processSteps in copy
+  const originalStepTitle = original.processSteps![0].title;
+  duplicated.processSteps![0].title = 'Paso Alterado en Copia';
+  assert(
+    original.processSteps![0].title === originalStepTitle,
+    'Modificar processSteps en la copia NO muta el array original'
+  );
+
+  // 4.4 Mutate networkingTargets in copy
+  const originalTargetsCount = original.networkingTargets.length;
+  duplicated.networkingTargets.push('Aliado Infiltrado en Copia');
+  assert(
+    original.networkingTargets.length === originalTargetsCount,
+    'Hacer push a networkingTargets en la copia NO altera el original'
+  );
+
+  // 4.5 Mutate features in copy
+  duplicated.features!.hasMiniCrm = false;
+  assert(
+    original.features!.hasMiniCrm === true,
+    'Modificar features.hasMiniCrm en la copia NO muta features del original'
+  );
+
+  // 4.6 Mutate brandOverrides in copy
+  duplicated.brandOverrides = { overrideBrand: true, reason: 'Mutación Copia' };
+  assert(
+    original.brandOverrides === undefined || original.brandOverrides?.overrideBrand !== true,
+    'Asignar brandOverrides en la copia NO altera brandOverrides del original'
+  );
+
+  // ===========================================================================
+  // 5. Aislamiento Completo de CRM, Prospectos, Estadísticas y Resultados
+  // ===========================================================================
+  console.log('\n🔒 5. Aislamiento Completo de CRM, Prospectos, Estadísticas y Resultados');
+
+  // Inject mock leads and stats for original profile in localStorage
+  mockStorage[`tarjetas_leads_${original.publicId}`] = JSON.stringify([
+    {
+      id: 'lead-jorge-secret-1',
+      name: 'Prospecto Confidencial Original',
+      phone: '+52 442 999 8888',
+      createdAt: '2026-10-01T10:00:00Z',
+      notes: 'Nota privada del titular original',
+      nextAction: { title: 'Llamar a prospecto original' }
+    }
+  ]);
+
+  const statsStore = {
+    [original.publicId]: {
+      publicId: original.publicId,
+      views: 350,
+      vcardDownloads: 80,
+      whatsappClicks: 45
+    }
+  };
+  mockStorage['redconecta_analytics_stats_v1'] = JSON.stringify(statsStore);
+
+  // 5.1 Check leads for copied profile
+  const copyLeads = await getLeadsForProfile(duplicated.publicId);
+  assert(copyLeads.length === 0, 'La copia tiene buzón de prospectos vacío [] (no hereda leads del original)');
+  assert(
+    !copyLeads.some((l) => l.name?.includes('Prospecto Confidencial')),
+    'Prospectos confidenciales del titular original NO están presentes en la copia'
+  );
+
+  // 5.2 Check stats for copied profile
+  const currentStats = getStoredStats();
+  assert(
+    currentStats[duplicated.publicId] === undefined,
+    'La copia no tiene estadísticas heredadas ni aperturas asociadas al original'
+  );
+
+  // ===========================================================================
+  // 6. Comprobación del Recorrido Real de Creación y Guardado en UI / State
+  // ===========================================================================
+  console.log('\n💼 6. Comprobación del Recorrido Real de Creación y Guardado en UI / State');
+
+  let stateProfiles: ParticipantProfile[] = [...existingProfiles];
+
+  // Simulating CompanyManagerView handleDuplicate
+  const handleSimulateDuplicateInUI = (targetMember: ParticipantProfile) => {
+    const dupe = duplicateMemberCard(targetMember, { existingProfiles: stateProfiles });
+    stateProfiles = [dupe, ...stateProfiles];
+    mockStorage['redconecta_cards_v1'] = JSON.stringify(stateProfiles);
+    return dupe;
+  };
+
+  // Simulating CompanyManagerView handleCreateFromTemplate
+  const handleSimulateCreateTemplateInUI = (company: typeof nexoCompany) => {
+    const newPubId = `${company.slug}-miembro-${stateProfiles.length + 1}`;
+    const created = createMemberFromCorporateTemplate(
+      company,
+      {
+        publicId: newPubId,
+        name: 'Ing. Valeria Domínguez',
+        role: 'Coordinadora de Calidad',
+        department: 'Operaciones & Planta',
+        roleStatement: 'Asegura estándares ISO y certificación de líneas.'
+      },
+      { existingProfiles: stateProfiles }
+    );
+    stateProfiles = [created, ...stateProfiles];
+    mockStorage['redconecta_cards_v1'] = JSON.stringify(stateProfiles);
+    return created;
+  };
+
+  const uiDupe1 = handleSimulateDuplicateInUI(existingProfiles[0]);
+  const uiDupe2 = handleSimulateDuplicateInUI(existingProfiles[0]);
+  const uiCreated1 = handleSimulateCreateTemplateInUI(nexoCompany);
+
+  assert(uiDupe1.publicId !== uiDupe2.publicId, 'Dos duplicaciones sucesivas en la UI tienen identificadores distintos');
+  assert(uiDupe2.publicId !== existingProfiles[0].publicId, 'Identificador de la segunda duplicación no colisiona con el original');
+  assert(Boolean(uiCreated1.publicId && !uiCreated1.publicId.includes('undefined')), 'Alta desde plantilla tiene identificador válido');
+
+  // Verify storage persistence
+  const persistedList: ParticipantProfile[] = JSON.parse(mockStorage['redconecta_cards_v1']);
+  assert(persistedList.length === 5, 'Persistencia en localStorage almacena los 5 perfiles (2 originales + 2 duplicados + 1 plantilla)');
+
+  // App.tsx deduplicateProfiles simulation
+  const seenSlugs = new Set<string>();
+  const deduplicatedProfiles = persistedList.filter((p) => {
+    const key = (p.publicId || '').trim().toLowerCase();
+    if (!key || seenSlugs.has(key)) return false;
+    seenSlugs.add(key);
+    return true;
+  });
+
+  assert(
+    deduplicatedProfiles.length === 5,
+    'deduplicateProfiles de App.tsx preserva el 100% de los perfiles creados y duplicados sin descartar ninguno por colisión'
+  );
+
+  // ===========================================================================
+  // Resumen
+  // ===========================================================================
+  console.log('\n' + '='.repeat(60));
+  console.log(`TOTAL CASOS VERIFICADOS BLOQUE 1: ${passed + failed} | APROBADOS: ${passed} | FALLIDOS: ${failed}`);
+  console.log('='.repeat(60));
+
+  if (failed > 0) {
+    process.exit(1);
+  }
+}
+
+runTests().catch((err) => {
+  console.error('Error fatal durante la verificación de Bloque 1:', err);
+  process.exit(1);
+});
+

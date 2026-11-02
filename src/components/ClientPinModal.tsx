@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ParticipantProfile } from '../types/card';
+import { verifyPinClient } from '../services/authClient';
 import {
   Lock,
   ShieldCheck,
@@ -15,21 +16,20 @@ interface ClientPinModalProps {
   onClose: () => void;
   profile: ParticipantProfile;
   onSuccess: () => void;
-  adminPin?: string;
 }
 
 export const ClientPinModal: React.FC<ClientPinModalProps> = ({
   isOpen,
   onClose,
   profile,
-  onSuccess,
-  adminPin = '1234'
+  onSuccess
 }) => {
   const [pin, setPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState<boolean>(false);
   const [attempts, setAttempts] = useState<number>(0);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -60,25 +60,21 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Extract candidate valid PINs
-  const rawPhone = profile.phone ? profile.phone.replace(/[^0-9]/g, '') : '';
-  const phoneLast4 = rawPhone.length >= 4 ? rawPhone.slice(-4) : '1234';
-  const profilePin = profile.pin || '1234';
+  const validatePin = async (enteredPin: string) => {
+    setIsVerifying(true);
+    let result;
+    try {
+      result = await verifyPinClient(profile.publicId, enteredPin);
+    } finally {
+      setIsVerifying(false);
+    }
 
-  const validatePin = (enteredPin: string) => {
-    // Check against profile custom pin, last 4 digits of phone, or master organizer admin pin
-    const isValid =
-      enteredPin === profilePin ||
-      enteredPin === phoneLast4 ||
-      enteredPin === adminPin ||
-      enteredPin === '1234';
-
-    if (isValid) {
+    if (result.success && result.token) {
       setIsSuccess(true);
       setErrorMsg(null);
-      // Persist authenticated session for this publicId in sessionStorage
       try {
         sessionStorage.setItem(`client_auth_${profile.publicId.toLowerCase()}`, 'true');
+        sessionStorage.setItem(`client_session_token_${profile.publicId.toLowerCase()}`, result.token);
       } catch {}
 
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -92,11 +88,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
       const nextAttempts = attempts + 1;
       setAttempts(nextAttempts);
       setIsShaking(true);
-      setErrorMsg(
-        nextAttempts >= 5
-          ? 'Demasiados intentos erróneos. Por favor espera unos momentos.'
-          : `PIN incorrecto (${nextAttempts}/5). Verifica tus 4 dígitos.`
-      );
+      setErrorMsg(result.error || 'PIN incorrecto. Verifica tus 4 dígitos.');
 
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(200);

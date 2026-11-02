@@ -3,27 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: profiles
-    // Document ID: string (e.g. 'mariana-rivas', 'participante-1')
-    // Fields:
-    //   - publicId: string (required, 1-100 chars)
-    //   - name: string (required, 1-120 chars)
-    //   - shortName: string (required, 1-60 chars)
-    //   - role: string (required, 1-120 chars)
-    //   - company: string (required, 1-120 chars)
-    //   - phone: string (required, 1-30 chars)
-    //   - email: string (required, valid email or empty)
-    //   - published: boolean (required)
-    //   - statusActive: boolean (required)
-    //   - themeKey: string (required, 'ejecutivo' | 'negocio' | 'personal')
-    //   - valueProp: string (optional, 0-500 chars)
-    //   - solutions: list (optional, max 10 items)
-    //   - networkingTargets: list (optional, max 10 items)
-    //   - links: list (optional, max 10 items)
-    //
+    // RedConecta MX • Tribu Creativa QRO
+    // Production Cloud Firestore Security Rules (LFPDPPP & Security Hardened)
+    // FASE UX 03B: RBAC (Agency & Titular) + Secret Isolation
     // ===============================================================
 
     // Helper functions
@@ -40,34 +22,76 @@ service cloud.firestore {
              data.phone is string && data.phone.size() <= 30 &&
              data.published is bool &&
              data.statusActive is bool &&
-             isValidTheme(data.themeKey);
+             isValidTheme(data.themeKey) &&
+             (!('pin' in data)) &&
+             (!('operatorContext' in data));
+    }
+
+    function isValidLead(data) {
+      return data.publicId is string && data.publicId.size() > 0 && data.publicId.size() <= 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 30 &&
+             data.status in ['nuevo', 'contactado', 'reunion', 'cerrado', 'archivado'] &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('company' in data) || (data.company is string && data.company.size() <= 120)) &&
+             (!('message' in data) || (data.message is string && data.message.size() <= 1000));
+    }
+
+    function isValidMeeting(data) {
+      return data.publicId is string && data.publicId.size() > 0 && data.publicId.size() <= 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.dealTemperature in ['frio', 'tibio', 'caliente'];
+    }
+
+    function isAgency(auth) {
+      return auth != null && auth.token.role == 'agency';
+    }
+
+    function isTitularOf(auth, publicId) {
+      return auth != null && auth.token.role == 'titular' && auth.token.publicId == publicId;
     }
 
     match /profiles/{profileId} {
-      // Anyone with the link or QR can view published business cards
-      allow read: if true;
+      // Anyone with the link or QR can view published business cards, agency sees all
+      allow read: if resource.data.published == true || isAgency(request.auth);
 
-      // Card creation and updates require valid schema
-      allow create: if isValidProfile(request.resource.data);
-      allow update: if isValidProfile(request.resource.data);
-      allow delete: if true;
+      // Card creation and updates require agency role and valid schema
+      allow create: if isAgency(request.auth) && isValidProfile(request.resource.data);
+      allow update: if isAgency(request.auth) && isValidProfile(request.resource.data);
+      allow delete: if isAgency(request.auth);
+    }
+
+    match /profile_secrets/{profileId} {
+      // Solo accesible por backend/Admin SDK
+      allow read, write: if false;
     }
 
     match /activities/{activityId} {
       // Analytics events for card views & vcard downloads
       allow read: if true;
-      allow create: if request.resource.data.publicId is string;
+      allow create: if request.resource.data.publicId is string &&
+                      request.resource.data.publicId.size() > 0 &&
+                      request.resource.data.publicId.size() <= 100;
       allow update, delete: if false;
     }
 
     match /leads/{leadId} {
-      // Mini-CRM leads captured from digital cards
-      allow read, write: if true;
+      // Visitantes NO pueden leer ni borrar leads.
+      // La captura pública se efectúa por servidor (/api/leads/capture).
+      allow read: if isAgency(request.auth) || isTitularOf(request.auth, resource.data.publicId);
+      allow create: if isAgency(request.auth) || (isTitularOf(request.auth, request.resource.data.publicId) && isValidLead(request.resource.data));
+      allow update: if isAgency(request.auth) || (
+                      isTitularOf(request.auth, resource.data.publicId) &&
+                      isValidLead(request.resource.data) &&
+                      request.resource.data.publicId == resource.data.publicId &&
+                      request.resource.data.timestamp == resource.data.timestamp
+                    );
+      allow delete: if isAgency(request.auth) || isTitularOf(request.auth, resource.data.publicId);
     }
 
     match /meetings/{meetingId} {
       // Meeting intelligence recordings, transcripts, and action items
-      allow read, write: if true;
+      allow read, create, update, delete: if isAgency(request.auth) || isTitularOf(request.auth, resource.data.publicId);
     }
   }
 }

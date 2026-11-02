@@ -11,12 +11,17 @@ import { QRModal } from './components/QRModal';
 import { SpecModal } from './components/SpecModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { CreateProfileModal } from './components/CreateProfileModal';
+import { ClientOnboardingWizard } from './components/ClientOnboardingWizard';
+import { InviteClientModal } from './components/InviteClientModal';
 import { ClientDeliveryModal } from './components/ClientDeliveryModal';
 import { ClientStatsView } from './components/ClientStatsView';
 import { HomePage } from './components/HomePage';
 import { ClientPortalModal } from './components/ClientPortalModal';
 import { ClientPinModal } from './components/ClientPinModal';
 import { Toast } from './components/Toast';
+import { CompanyDirectoryView } from './components/CompanyDirectoryView';
+import { getCompanyBySlug } from './services/companyService';
+import { CompanyAccount } from './types/company';
 import { downloadVCardFile } from './utils/vcard';
 import { recordActivity } from './utils/analytics';
 import { decodeCardPayload } from './utils/qr';
@@ -39,10 +44,16 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Eye,
-  Lock
+  Lock,
+  Sparkles,
+  MessageCircle,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Edit3
 } from 'lucide-react';
 
-const STORAGE_KEY = 'redconecta_profiles_v5';
+const STORAGE_KEY = 'redconecta_profiles_v9';
 const ADMIN_PIN_KEY = 'redconecta_admin_pin_v1';
 const ADMIN_SESSION_KEY = 'redconecta_admin_session_v1';
 const DELETED_PROFILES_KEY = 'redconecta_deleted_ids_v1';
@@ -60,17 +71,59 @@ function getDeletedIdsSet(): Set<string> {
   return new Set();
 }
 
+export const RESERVED_SLUGS = new Set([
+  'root',
+  'admin',
+  'studio',
+  'alta',
+  'registro',
+  'onboarding',
+  'crear',
+  'stats',
+  'portal',
+  'directorio',
+  'home',
+  'vcard',
+  'qr',
+  'spec',
+  'empresa',
+  'e',
+  'equipo'
+]);
+
+export function isReservedSlug(id: string | null | undefined): boolean {
+  if (!id) return true;
+  return RESERVED_SLUGS.has(id.trim().toLowerCase());
+}
+
+const INITIAL_PROFILES_MAP = new Map(
+  INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p])
+);
+
 function normalizeProfile(p: ParticipantProfile): ParticipantProfile {
-  const isSara = p.publicId.trim().toLowerCase() === 'sara-sazedi';
+  const cleanId = p.publicId.trim().toLowerCase();
+  const isSara = cleanId === 'sara-sazedi';
+  const isDemo = cleanId.startsWith('demo-');
+  const official = INITIAL_PROFILES_MAP.get(cleanId);
+
+  const mergedTestimonials =
+    isDemo && official?.testimonials && (!p.testimonials || p.testimonials.length < official.testimonials.length)
+      ? official.testimonials
+      : p.testimonials;
+
   return {
     ...p,
-    pin: p.pin || '1234',
+    testimonials: mergedTestimonials,
+    pin: p.pin || (p.phone ? p.phone.replace(/\D/g, '').slice(-4) : '7429'),
     features: {
       hasMiniCrm: p.features?.hasMiniCrm !== undefined ? p.features.hasMiniCrm : true,
       hasMeetingIntelligence:
-        p.features?.hasMeetingIntelligence !== undefined ? p.features.hasMeetingIntelligence : isSara,
+        p.features?.hasMeetingIntelligence !== undefined
+          ? p.features.hasMeetingIntelligence
+          : isSara || isDemo,
       aiMinutesQuota: p.features?.aiMinutesQuota || 120,
-      aiMinutesUsed: p.features?.aiMinutesUsed !== undefined ? p.features.aiMinutesUsed : (isSara ? 26 : 0)
+      aiMinutesUsed:
+        p.features?.aiMinutesUsed !== undefined ? p.features.aiMinutesUsed : isSara || isDemo ? 34 : 0
     }
   };
 }
@@ -101,8 +154,21 @@ export default function App() {
           const filtered = deduplicateProfiles(parsed).filter(
             (p) => !deleted.has(p.publicId.trim().toLowerCase())
           );
-          if (filtered.length > 0) {
-            return filtered;
+          // Always ensure official initial & demo archetype profiles are refreshed from INITIAL_PROFILES
+          const initialMap = new Map(INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p]));
+          const merged = filtered.map((p) => {
+            const key = p.publicId.trim().toLowerCase();
+            if ((key.startsWith('demo-') || key === 'sara-sazedi') && initialMap.has(key)) {
+              return initialMap.get(key)!;
+            }
+            return p;
+          });
+          const existingIds = new Set(merged.map((p) => p.publicId.trim().toLowerCase()));
+          const missingInitials = INITIAL_PROFILES.filter(
+            (p) => !existingIds.has(p.publicId.trim().toLowerCase()) && !deleted.has(p.publicId.trim().toLowerCase())
+          );
+          if (merged.length > 0 || missingInitials.length > 0) {
+            return deduplicateProfiles([...merged, ...missingInitials]);
           }
         }
       }
@@ -152,6 +218,22 @@ export default function App() {
   });
 
   const [isClientPortalOpen, setIsClientPortalOpen] = useState<boolean>(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    try {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      return (
+        path === '/alta' ||
+        path === '/alta/' ||
+        path === '/registro' ||
+        path === '/registro/' ||
+        hash.includes('alta') ||
+        hash.includes('registro')
+      );
+    } catch {
+      return false;
+    }
+  });
   const [adminAuthTarget, setAdminAuthTarget] = useState<'studio' | 'dashboard'>('studio');
 
   // Admin Security & Privacy State
@@ -181,9 +263,11 @@ export default function App() {
   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
   const [isDeliveryOpen, setIsDeliveryOpen] = useState<boolean>(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
   const [isClientStatsOpen, setIsClientStatsOpen] = useState<boolean>(false);
   const [isClientPinModalOpen, setIsClientPinModalOpen] = useState<boolean>(false);
   const [targetPinProfile, setTargetPinProfile] = useState<ParticipantProfile | null>(null);
+  const [activeCompanyDirectory, setActiveCompanyDirectory] = useState<CompanyAccount | null>(null);
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -210,7 +294,7 @@ export default function App() {
     }
   }, [profiles]);
 
-  // Load cloud profiles from Firestore
+  // Load cloud profiles from Firestore & sync initial profiles
   useEffect(() => {
     let isMounted = true;
     getAllCloudProfiles().then((cloudList) => {
@@ -222,11 +306,21 @@ export default function App() {
         );
         if (nonDeletedCloud.length > 0) {
           setProfiles((prev) => {
+            const initialMap = new Map(INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p]));
             const nonDeletedPrev = prev.filter((p) => !deleted.has(p.publicId.trim().toLowerCase()));
-            return deduplicateProfiles([...nonDeletedCloud, ...nonDeletedPrev]);
+            const canonicalCloud = nonDeletedCloud.map((p) => {
+              const key = p.publicId.trim().toLowerCase();
+              if (key.startsWith('demo-') && initialMap.has(key)) {
+                return initialMap.get(key)!;
+              }
+              return p;
+            });
+            return deduplicateProfiles([...canonicalCloud, ...nonDeletedPrev]);
           });
         }
       }
+      // Sync any missing demo profiles to Firestore in background
+      seedInitialProfilesIfEmpty();
     });
     return () => {
       isMounted = false;
@@ -262,7 +356,36 @@ export default function App() {
       }
     }
 
-    // Check for explicit admin route
+    // 1. Check for explicit onboarding / registration route
+    const rawPath = window.location.pathname.toLowerCase();
+    const rawHash = window.location.hash.toLowerCase();
+    const isOnboardingRoute =
+      rawPath === '/alta' ||
+      rawPath === '/alta/' ||
+      rawPath === '/registro' ||
+      rawPath === '/registro/' ||
+      rawPath === '/onboarding' ||
+      rawPath === '/onboarding/' ||
+      rawHash === '#alta' ||
+      rawHash === '#/alta' ||
+      rawHash === '#registro' ||
+      rawHash === '#/registro' ||
+      rawHash === '#onboarding' ||
+      rawHash === '#/onboarding' ||
+      params.get('alta') === 'true' ||
+      params.get('registro') === 'true' ||
+      params.get('onboarding') === 'true';
+
+    if (isOnboardingRoute) {
+      setIsHome(true);
+      setIsOnboardingOpen(true);
+      setNotFoundId(null);
+      setIsStandaloneView(false);
+      setIsDashboardOpen(false);
+      return;
+    }
+
+    // 2. Check for explicit admin route
     if (
       params.get('admin') === 'true' ||
       params.get('admin') === '1' ||
@@ -283,7 +406,7 @@ export default function App() {
       return;
     }
 
-    // Check for explicit studio route
+    // 3. Check for explicit studio route
     if (
       params.get('studio') === 'true' ||
       window.location.pathname === '/studio' ||
@@ -303,17 +426,54 @@ export default function App() {
       return;
     }
 
+    // 4. Check for corporate directory route (/e/:slug, /empresa/:slug, ?e=:slug, ?empresa=:slug)
+    const parseCompanySlug = (): string | null => {
+      const match = window.location.pathname.match(/\/(?:e|empresa)\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) return match[1];
+
+      const hashMatch = window.location.hash.match(/#(?:\/(?:e|empresa)\/)?([a-zA-Z0-9_-]+)/);
+      if (
+        hashMatch &&
+        hashMatch[1] &&
+        (window.location.hash.includes('/e/') || window.location.hash.includes('/empresa/'))
+      ) {
+        return hashMatch[1];
+      }
+
+      const querySlug = params.get('e') || params.get('empresa');
+      if (querySlug) return querySlug;
+
+      return null;
+    };
+
+    const targetCompanySlug = parseCompanySlug();
+    if (targetCompanySlug) {
+      const comp = getCompanyBySlug(targetCompanySlug);
+      if (comp) {
+        setIsHome(false);
+        setIsStandaloneView(false);
+        setIsClientStatsOpen(false);
+        setIsDashboardOpen(false);
+        setActiveCompanyDirectory(comp);
+        return;
+      }
+    }
+
     const parseTargetId = (): string | null => {
       const pathMatch = window.location.pathname.match(/\/c\/([a-zA-Z0-9_-]+)/);
-      if (pathMatch && pathMatch[1]) return pathMatch[1];
+      if (pathMatch && pathMatch[1] && !isReservedSlug(pathMatch[1])) {
+        return pathMatch[1];
+      }
 
       const hashMatch = window.location.hash.match(/#(?:\/c\/)?([a-zA-Z0-9_-]+)/);
-      if (hashMatch && hashMatch[1] && hashMatch[1] !== 'root' && hashMatch[1] !== 'admin' && hashMatch[1] !== 'studio') {
+      if (hashMatch && hashMatch[1] && !isReservedSlug(hashMatch[1])) {
         return hashMatch[1];
       }
 
       const queryId = params.get('c') || params.get('id');
-      if (queryId) return queryId;
+      if (queryId && !isReservedSlug(queryId)) {
+        return queryId;
+      }
 
       return null;
     };
@@ -352,25 +512,80 @@ export default function App() {
         setActiveTheme(profiles[foundIdx].themeKey);
         setIsStandaloneView(true);
         setNotFoundId(null);
-        // Record view event
-        recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'view', 'Vista de Tarjeta');
-      } else {
-        // Query Firestore for this card
-        getCloudProfile(targetId).then((cloudCard) => {
-          if (cloudCard) {
-            setProfiles((prev) => deduplicateProfiles([cloudCard, ...prev]));
+        // Only record public card views when visiting the public card, NOT when accessing the private stats panel
+        if (!isStatsRoute) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const isQrOrigin = urlParams.get('src') === 'qr' || urlParams.get('origin') === 'qr';
+          if (isQrOrigin) {
+            recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'qr_scan', 'Apertura con Origen QR');
+          } else {
+            recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'view', 'Vista de Tarjeta');
+          }
+        }
+      }
+
+      // Always check Firestore for the latest update of this specific card (excluding local demo archetypes)
+      getCloudProfile(targetId).then((cloudCard) => {
+        if (cloudCard) {
+          const cleanId = cloudCard.publicId.trim().toLowerCase();
+          // Demo profiles are local archetype templates; do not allow stale remote cloud documents to override canonical local archetypes
+          if (cleanId.startsWith('demo-')) {
+            return;
+          }
+          setProfiles((prev) => {
+            const exists = prev.some((p) => p.publicId.trim().toLowerCase() === cleanId);
+            const updatedList = exists
+              ? prev.map((p) => (p.publicId.trim().toLowerCase() === cleanId ? cloudCard : p))
+              : [cloudCard, ...prev];
+            return deduplicateProfiles(updatedList);
+          });
+          if (foundIdx === -1) {
             setCurrentIndex(0);
             setActiveTheme(cloudCard.themeKey);
             setIsStandaloneView(true);
             setNotFoundId(null);
-            recordActivity(cloudCard.publicId, cloudCard.shortName, 'view', 'Vista de Tarjeta (Cloud)');
-          } else {
-            setNotFoundId(targetId);
+            if (!isStatsRoute) {
+              recordActivity(cloudCard.publicId, cloudCard.shortName, 'view', 'Vista de Tarjeta (Cloud)');
+            }
           }
-        });
-      }
+        } else if (foundIdx === -1) {
+          setNotFoundId(targetId);
+        }
+      });
     }
   }, [profiles]);
+
+  // Listen for hash & history changes (e.g. clicking #alta or browser back/forward)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase();
+      if (
+        hash === '#alta' ||
+        hash === '#/alta' ||
+        hash === '#registro' ||
+        hash === '#/registro' ||
+        hash === '#onboarding' ||
+        hash === '#/onboarding' ||
+        path === '/alta' ||
+        path === '/registro' ||
+        path === '/onboarding'
+      ) {
+        setIsHome(true);
+        setIsOnboardingOpen(true);
+        setNotFoundId(null);
+        setIsStandaloneView(false);
+        setIsDashboardOpen(false);
+      }
+    };
+
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, []);
 
   // Keyboard navigation & modal dismiss
   useEffect(() => {
@@ -423,7 +638,7 @@ export default function App() {
         setActiveTheme(profiles[targetIdx].themeKey);
       }
     }
-    recordActivity(currentProfile.publicId, currentProfile.shortName, 'qr_scan', 'Simulación Escaneo QR');
+    // Opening the modal merely displays the QR code on screen; does NOT count as a QR scan
     setIsQROpen(true);
   };
 
@@ -674,6 +889,31 @@ export default function App() {
           <p className="text-stone-600 mt-2 max-w-md text-sm leading-relaxed">
             El enlace que estás intentando abrir no corresponde a una tarjeta activa en este momento. Por favor verifica el enlace o solicita una tarjeta actualizada.
           </p>
+
+          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={() => {
+                setNotFoundId(null);
+                setIsHome(true);
+                setIsStandaloneView(false);
+                window.history.pushState({}, '', '/');
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 bg-[#00685f] hover:bg-[#008378] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Ir a la Página Principal</span>
+            </button>
+            <a
+              href="https://wa.me/524424799017?text=Hola%20Tribu%20Creativa%20QRO,%20tengo%20una%20duda%20sobre%20un%20enlace%20de%20tarjeta%20digital."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Contactar Asesor por WhatsApp</span>
+            </a>
+          </div>
+
           <div className="mt-8 text-center text-xs text-stone-400">
             Tribu Creativa QRO • Tarjetas Digitales Profesionales
           </div>
@@ -721,13 +961,15 @@ export default function App() {
           <button
             onClick={() => {
               setNotFoundId(null);
+              setIsHome(true);
+              setIsStandaloneView(false);
               setCurrentIndex(0);
               window.history.pushState({}, '', '/');
             }}
             className="px-5 py-2.5 bg-[#00685f] hover:bg-[#008378] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver al Directorio Completo</span>
+            <span>Volver a la Página Principal</span>
           </button>
         </div>
       </div>
@@ -767,6 +1009,7 @@ export default function App() {
           onUpdatePin={handleUpdatePin}
           onLogoutAdmin={handleLogoutAdmin}
           onDeleteProfile={handleDeleteProfile}
+          onOpenOnboardingWizard={() => setIsOnboardingOpen(true)}
           onOpenDelivery={(pubId) => {
             const idx = profiles.findIndex((p) => p.publicId === pubId);
             if (idx !== -1) {
@@ -781,6 +1024,15 @@ export default function App() {
             window.history.pushState({}, '', '/');
           }}
           onUpdateProfileFeatures={handleUpdateProfileFeatures}
+          onUpdateProfiles={setProfiles}
+          onOpenCompanyDirectory={(companySlug) => {
+            const comp = getCompanyBySlug(companySlug);
+            if (comp) {
+              setIsDashboardOpen(false);
+              setActiveCompanyDirectory(comp);
+              window.history.pushState({}, '', `/e/${comp.slug}`);
+            }
+          }}
         />
         {/* Modals for when editing from dashboard */}
         <EditProfileModal
@@ -807,6 +1059,7 @@ export default function App() {
           onClose={() => setIsDeliveryOpen(false)}
           profile={currentProfile}
           onShowToast={showToast}
+          onUpdateProfile={handleSaveProfile}
         />
         <QRModal
           key={`qr-dash-${currentProfile.publicId}`}
@@ -816,6 +1069,31 @@ export default function App() {
           onShowToast={showToast}
         />
       </div>
+    );
+  }
+
+  // Public Corporate Team Directory View
+  if (activeCompanyDirectory) {
+    return (
+      <CompanyDirectoryView
+        company={activeCompanyDirectory}
+        profiles={profiles}
+        onOpenCard={(pubId) => {
+          setActiveCompanyDirectory(null);
+          const foundIdx = profiles.findIndex((p) => p.publicId.toLowerCase() === pubId.toLowerCase());
+          if (foundIdx !== -1) {
+            setCurrentIndex(foundIdx);
+            setActiveTheme(profiles[foundIdx].themeKey);
+            setIsStandaloneView(true);
+            window.history.pushState({}, '', `/c/${profiles[foundIdx].publicId}`);
+          }
+        }}
+        onBackHome={() => {
+          setActiveCompanyDirectory(null);
+          setIsHome(true);
+          window.history.pushState({}, '', '/');
+        }}
+      />
     );
   }
 
@@ -837,6 +1115,7 @@ export default function App() {
         onLockSession={() => {
           try {
             sessionStorage.removeItem(`client_auth_${currentProfile.publicId.toLowerCase()}`);
+            sessionStorage.removeItem(`client_session_token_${currentProfile.publicId.toLowerCase()}`);
           } catch {}
           setIsClientStatsOpen(false);
           setIsStandaloneView(true);
@@ -937,6 +1216,16 @@ export default function App() {
               onDownloadVCard={handleDownloadVCard}
               isStandalone={true}
               onOpenAdminAccess={() => handleRequestClientAuth(currentProfile)}
+              onOpenCompanyDirectory={(companySlug) => {
+                const comp = getCompanyBySlug(companySlug);
+                if (comp) {
+                  setIsStandaloneView(false);
+                  setIsClientStatsOpen(false);
+                  setIsDashboardOpen(false);
+                  setActiveCompanyDirectory(comp);
+                  window.history.pushState({}, '', `/e/${comp.slug}`);
+                }
+              }}
             />
           )}
         </main>
@@ -964,7 +1253,6 @@ export default function App() {
             }
           }}
           profile={targetPinProfile || currentProfile}
-          adminPin={adminPin}
           onSuccess={() => {
             const active = targetPinProfile || currentProfile;
             const targetIdx = profiles.findIndex(
@@ -1025,6 +1313,7 @@ export default function App() {
             setIsStandaloneView(true);
             window.history.pushState({}, '', `/c/${pubId}`);
           }}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
         />
 
         <AdminAccessModal
@@ -1057,7 +1346,6 @@ export default function App() {
             }
           }}
           profile={targetPinProfile || currentProfile}
-          adminPin={adminPin}
           onSuccess={() => {
             const active = targetPinProfile || currentProfile;
             const targetIdx = profiles.findIndex(
@@ -1074,6 +1362,31 @@ export default function App() {
             window.history.pushState({}, '', `/c/${active.publicId}/stats`);
             showToast(`¡Bienvenida/o ${active.shortName}! Acceso concedido al panel.`);
           }}
+        />
+
+        <ClientOnboardingWizard
+          isOpen={isOnboardingOpen}
+          onClose={() => {
+            setIsOnboardingOpen(false);
+            if (
+              window.location.hash.includes('alta') ||
+              window.location.hash.includes('registro') ||
+              window.location.hash.includes('onboarding') ||
+              window.location.pathname.includes('/alta') ||
+              window.location.pathname.includes('/registro')
+            ) {
+              window.history.pushState({}, '', '/');
+            }
+          }}
+          onSuccess={(newP) => {
+            handleCreateProfile(newP);
+            setIsOnboardingOpen(false);
+            setIsHome(false);
+            setIsStandaloneView(true);
+            window.history.pushState({}, '', `/c/${newP.publicId}`);
+          }}
+          onShowToast={showToast}
+          existingIds={profiles.map((p) => p.publicId.toLowerCase())}
         />
       </div>
     );
@@ -1104,10 +1417,15 @@ export default function App() {
         isDashboardActive={isDashboardOpen}
         onLogoutAdmin={handleLogoutAdmin}
         onOpenDelivery={() => setIsDeliveryOpen(true)}
+        onOpenInviteClient={() => setIsInviteModalOpen(true)}
         onBackHome={() => {
           setIsHome(true);
           window.history.pushState({}, '', '/');
         }}
+        profiles={profiles}
+        currentIndex={currentIndex}
+        onSelectProfile={handleSelectProfile}
+        onOpenEditProfile={() => setIsEditOpen(true)}
       />
 
       {/* Main Workspace Layout */}
@@ -1128,26 +1446,74 @@ export default function App() {
           onOpenDashboard={() => setIsDashboardOpen(true)}
           onLogoutAdmin={handleLogoutAdmin}
           onOpenDelivery={() => setIsDeliveryOpen(true)}
+          onOpenInviteClient={() => setIsInviteModalOpen(true)}
+          onShowToast={showToast}
+          onOpenEditSpecificProfile={(pubId) => {
+            const idx = profiles.findIndex((p) => p.publicId === pubId);
+            if (idx !== -1) {
+              handleSelectProfile(idx);
+            }
+            setIsEditOpen(true);
+          }}
         />
 
         {/* Central Workspace: Interactive Smartphone Simulator */}
         <main className="flex-1 bg-white p-3 sm:p-6 lg:p-8 flex flex-col items-center justify-start overflow-y-auto">
-          {/* Device Controls Bar */}
-          <div className="w-full max-w-md flex items-center justify-between mb-4 bg-[#f3f4f3] px-4 py-2 rounded-2xl border border-stone-200">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  currentProfile.published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                }`}
-              />
-              <span className="text-[12px] font-semibold text-[#1a1c1c]">
-                {deviceScale === 'compact'
-                  ? 'Simulador Móvil Compacto (360 × 740 px)'
-                  : 'Simulador iPhone 15 Pro (390 × 844 px)'}
-                {!currentProfile.published && ' [En Pausa]'}
-              </span>
+          {/* Device Controls Bar with Quick Card Navigation & Instant Link Copy */}
+          <div className="w-full max-w-md flex items-center justify-between mb-4 bg-[#f3f4f3] px-3 sm:px-4 py-2 rounded-2xl border border-stone-200 gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              {/* Previous / Next Card Cycler */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => handleSelectProfile((currentIndex - 1 + profiles.length) % profiles.length)}
+                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors cursor-pointer"
+                  title="Tarjeta anterior (tecla anterior)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleSelectProfile((currentIndex + 1) % profiles.length)}
+                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors cursor-pointer"
+                  title="Siguiente tarjeta (tecla siguiente)"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    currentProfile.published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  }`}
+                  title={currentProfile.published ? 'Tarjeta Activa' : 'Tarjeta Pausada'}
+                />
+                <span className="text-xs font-bold text-stone-900 truncate">
+                  {currentProfile.shortName}
+                </span>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/c/${currentProfile.publicId}`;
+                    navigator.clipboard.writeText(url).then(() => {
+                      showToast(`Enlace copiado: /c/${currentProfile.publicId}`);
+                    });
+                  }}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono text-teal-800 bg-teal-100/80 hover:bg-teal-200 transition-colors flex items-center gap-1 cursor-pointer truncate shrink-0"
+                  title="Clic para copiar enlace público"
+                >
+                  <Copy className="w-2.5 h-2.5" />
+                  <span className="truncate max-w-[120px]">/c/{currentProfile.publicId}</span>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setIsEditOpen(true)}
+                className="p-1.5 rounded-lg text-[#00685f] hover:bg-teal-50 transition-colors cursor-pointer"
+                title="Editar datos de esta tarjeta en el Studio"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={() => setDeviceScale(deviceScale === 'standard' ? 'compact' : 'standard')}
                 className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
@@ -1155,16 +1521,16 @@ export default function App() {
                     ? 'bg-stone-300 text-stone-900 font-bold'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
-                title="Alternar entre 390px y 360px compacto"
+                title="Alternar entre iPhone (390px) y Móvil Compacto (360px)"
               >
-                <Smartphone className="w-4 h-4" />
+                <Smartphone className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsStandaloneView(true)}
                 className="p-1.5 rounded-lg text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
                 title="Ver Tarjeta en Pantalla Completa"
               >
-                <Maximize2 className="w-4 h-4" />
+                <Maximize2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -1207,6 +1573,16 @@ export default function App() {
                     onDownloadVCard={handleDownloadVCard}
                     isStandalone={false}
                     onOpenAdminAccess={() => handleRequestClientAuth(currentProfile)}
+                    onOpenCompanyDirectory={(companySlug) => {
+                      const comp = getCompanyBySlug(companySlug);
+                      if (comp) {
+                        setIsStandaloneView(false);
+                        setIsClientStatsOpen(false);
+                        setIsDashboardOpen(false);
+                        setActiveCompanyDirectory(comp);
+                        window.history.pushState({}, '', `/e/${comp.slug}`);
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -1243,7 +1619,6 @@ export default function App() {
           }
         }}
         profile={targetPinProfile || currentProfile}
-        adminPin={adminPin}
         onSuccess={() => {
           const active = targetPinProfile || currentProfile;
           setIsClientPinModalOpen(false);
@@ -1289,6 +1664,40 @@ export default function App() {
         onClose={() => setIsDeliveryOpen(false)}
         profile={currentProfile}
         onShowToast={showToast}
+        onUpdateProfile={handleSaveProfile}
+      />
+
+      <ClientOnboardingWizard
+        isOpen={isOnboardingOpen}
+        onClose={() => {
+          setIsOnboardingOpen(false);
+          if (
+            window.location.hash.includes('alta') ||
+            window.location.hash.includes('registro') ||
+            window.location.hash.includes('onboarding') ||
+            window.location.pathname.includes('/alta') ||
+            window.location.pathname.includes('/registro')
+          ) {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+        onSuccess={(newP) => {
+          handleCreateProfile(newP);
+          setIsOnboardingOpen(false);
+          setIsHome(false);
+          setIsStandaloneView(true);
+          window.history.pushState({}, '', `/c/${newP.publicId}`);
+        }}
+        onShowToast={showToast}
+        existingIds={profiles.map((p) => p.publicId.toLowerCase())}
+      />
+
+      {/* Invite Client (Concierge Onboarding) Modal for Studio */}
+      <InviteClientModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onShowToast={showToast}
+        onOpenWizardNow={() => setIsOnboardingOpen(true)}
       />
     </div>
   );

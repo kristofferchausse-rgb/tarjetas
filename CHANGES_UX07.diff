@@ -1,0 +1,4207 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 7b1ba5a..9eb9b9b 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -11,6 +11,8 @@ import { QRModal } from './components/QRModal';
+ import { SpecModal } from './components/SpecModal';
+ import { EditProfileModal } from './components/EditProfileModal';
+ import { CreateProfileModal } from './components/CreateProfileModal';
++import { ClientOnboardingWizard } from './components/ClientOnboardingWizard';
++import { InviteClientModal } from './components/InviteClientModal';
+ import { ClientDeliveryModal } from './components/ClientDeliveryModal';
+ import { ClientStatsView } from './components/ClientStatsView';
+ import { HomePage } from './components/HomePage';
+@@ -39,10 +41,16 @@ import {
+   LayoutDashboard,
+   ShieldCheck,
+   Eye,
+-  Lock
++  Lock,
++  Sparkles,
++  MessageCircle,
++  ChevronLeft,
++  ChevronRight,
++  Copy,
++  Edit3
+ } from 'lucide-react';
+ 
+-const STORAGE_KEY = 'redconecta_profiles_v5';
++const STORAGE_KEY = 'redconecta_profiles_v9';
+ const ADMIN_PIN_KEY = 'redconecta_admin_pin_v1';
+ const ADMIN_SESSION_KEY = 'redconecta_admin_session_v1';
+ const DELETED_PROFILES_KEY = 'redconecta_deleted_ids_v1';
+@@ -60,17 +68,56 @@ function getDeletedIdsSet(): Set<string> {
+   return new Set();
+ }
+ 
++export const RESERVED_SLUGS = new Set([
++  'root',
++  'admin',
++  'studio',
++  'alta',
++  'registro',
++  'onboarding',
++  'crear',
++  'stats',
++  'portal',
++  'directorio',
++  'home',
++  'vcard',
++  'qr',
++  'spec'
++]);
++
++export function isReservedSlug(id: string | null | undefined): boolean {
++  if (!id) return true;
++  return RESERVED_SLUGS.has(id.trim().toLowerCase());
++}
++
++const INITIAL_PROFILES_MAP = new Map(
++  INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p])
++);
++
+ function normalizeProfile(p: ParticipantProfile): ParticipantProfile {
+-  const isSara = p.publicId.trim().toLowerCase() === 'sara-sazedi';
++  const cleanId = p.publicId.trim().toLowerCase();
++  const isSara = cleanId === 'sara-sazedi';
++  const isDemo = cleanId.startsWith('demo-');
++  const official = INITIAL_PROFILES_MAP.get(cleanId);
++
++  const mergedTestimonials =
++    isDemo && official?.testimonials && (!p.testimonials || p.testimonials.length < official.testimonials.length)
++      ? official.testimonials
++      : p.testimonials;
++
+   return {
+     ...p,
+-    pin: p.pin || '1234',
++    testimonials: mergedTestimonials,
++    pin: p.pin || (p.phone ? p.phone.replace(/\D/g, '').slice(-4) : '7429'),
+     features: {
+       hasMiniCrm: p.features?.hasMiniCrm !== undefined ? p.features.hasMiniCrm : true,
+       hasMeetingIntelligence:
+-        p.features?.hasMeetingIntelligence !== undefined ? p.features.hasMeetingIntelligence : isSara,
++        p.features?.hasMeetingIntelligence !== undefined
++          ? p.features.hasMeetingIntelligence
++          : isSara || isDemo,
+       aiMinutesQuota: p.features?.aiMinutesQuota || 120,
+-      aiMinutesUsed: p.features?.aiMinutesUsed !== undefined ? p.features.aiMinutesUsed : (isSara ? 26 : 0)
++      aiMinutesUsed:
++        p.features?.aiMinutesUsed !== undefined ? p.features.aiMinutesUsed : isSara || isDemo ? 34 : 0
+     }
+   };
+ }
+@@ -101,8 +148,21 @@ export default function App() {
+           const filtered = deduplicateProfiles(parsed).filter(
+             (p) => !deleted.has(p.publicId.trim().toLowerCase())
+           );
+-          if (filtered.length > 0) {
+-            return filtered;
++          // Always ensure official initial & demo archetype profiles are refreshed from INITIAL_PROFILES
++          const initialMap = new Map(INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p]));
++          const merged = filtered.map((p) => {
++            const key = p.publicId.trim().toLowerCase();
++            if ((key.startsWith('demo-') || key === 'sara-sazedi') && initialMap.has(key)) {
++              return initialMap.get(key)!;
++            }
++            return p;
++          });
++          const existingIds = new Set(merged.map((p) => p.publicId.trim().toLowerCase()));
++          const missingInitials = INITIAL_PROFILES.filter(
++            (p) => !existingIds.has(p.publicId.trim().toLowerCase()) && !deleted.has(p.publicId.trim().toLowerCase())
++          );
++          if (merged.length > 0 || missingInitials.length > 0) {
++            return deduplicateProfiles([...merged, ...missingInitials]);
+           }
+         }
+       }
+@@ -152,6 +212,22 @@ export default function App() {
+   });
+ 
+   const [isClientPortalOpen, setIsClientPortalOpen] = useState<boolean>(false);
++  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
++    try {
++      const path = window.location.pathname;
++      const hash = window.location.hash;
++      return (
++        path === '/alta' ||
++        path === '/alta/' ||
++        path === '/registro' ||
++        path === '/registro/' ||
++        hash.includes('alta') ||
++        hash.includes('registro')
++      );
++    } catch {
++      return false;
++    }
++  });
+   const [adminAuthTarget, setAdminAuthTarget] = useState<'studio' | 'dashboard'>('studio');
+ 
+   // Admin Security & Privacy State
+@@ -181,6 +257,7 @@ export default function App() {
+   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
+   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
+   const [isDeliveryOpen, setIsDeliveryOpen] = useState<boolean>(false);
++  const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
+   const [isClientStatsOpen, setIsClientStatsOpen] = useState<boolean>(false);
+   const [isClientPinModalOpen, setIsClientPinModalOpen] = useState<boolean>(false);
+   const [targetPinProfile, setTargetPinProfile] = useState<ParticipantProfile | null>(null);
+@@ -210,7 +287,7 @@ export default function App() {
+     }
+   }, [profiles]);
+ 
+-  // Load cloud profiles from Firestore
++  // Load cloud profiles from Firestore & sync initial profiles
+   useEffect(() => {
+     let isMounted = true;
+     getAllCloudProfiles().then((cloudList) => {
+@@ -222,11 +299,21 @@ export default function App() {
+         );
+         if (nonDeletedCloud.length > 0) {
+           setProfiles((prev) => {
++            const initialMap = new Map(INITIAL_PROFILES.map((p) => [p.publicId.trim().toLowerCase(), p]));
+             const nonDeletedPrev = prev.filter((p) => !deleted.has(p.publicId.trim().toLowerCase()));
+-            return deduplicateProfiles([...nonDeletedCloud, ...nonDeletedPrev]);
++            const canonicalCloud = nonDeletedCloud.map((p) => {
++              const key = p.publicId.trim().toLowerCase();
++              if (key.startsWith('demo-') && initialMap.has(key)) {
++                return initialMap.get(key)!;
++              }
++              return p;
++            });
++            return deduplicateProfiles([...canonicalCloud, ...nonDeletedPrev]);
+           });
+         }
+       }
++      // Sync any missing demo profiles to Firestore in background
++      seedInitialProfilesIfEmpty();
+     });
+     return () => {
+       isMounted = false;
+@@ -262,7 +349,36 @@ export default function App() {
+       }
+     }
+ 
+-    // Check for explicit admin route
++    // 1. Check for explicit onboarding / registration route
++    const rawPath = window.location.pathname.toLowerCase();
++    const rawHash = window.location.hash.toLowerCase();
++    const isOnboardingRoute =
++      rawPath === '/alta' ||
++      rawPath === '/alta/' ||
++      rawPath === '/registro' ||
++      rawPath === '/registro/' ||
++      rawPath === '/onboarding' ||
++      rawPath === '/onboarding/' ||
++      rawHash === '#alta' ||
++      rawHash === '#/alta' ||
++      rawHash === '#registro' ||
++      rawHash === '#/registro' ||
++      rawHash === '#onboarding' ||
++      rawHash === '#/onboarding' ||
++      params.get('alta') === 'true' ||
++      params.get('registro') === 'true' ||
++      params.get('onboarding') === 'true';
++
++    if (isOnboardingRoute) {
++      setIsHome(true);
++      setIsOnboardingOpen(true);
++      setNotFoundId(null);
++      setIsStandaloneView(false);
++      setIsDashboardOpen(false);
++      return;
++    }
++
++    // 2. Check for explicit admin route
+     if (
+       params.get('admin') === 'true' ||
+       params.get('admin') === '1' ||
+@@ -283,7 +399,7 @@ export default function App() {
+       return;
+     }
+ 
+-    // Check for explicit studio route
++    // 3. Check for explicit studio route
+     if (
+       params.get('studio') === 'true' ||
+       window.location.pathname === '/studio' ||
+@@ -305,15 +421,19 @@ export default function App() {
+ 
+     const parseTargetId = (): string | null => {
+       const pathMatch = window.location.pathname.match(/\/c\/([a-zA-Z0-9_-]+)/);
+-      if (pathMatch && pathMatch[1]) return pathMatch[1];
++      if (pathMatch && pathMatch[1] && !isReservedSlug(pathMatch[1])) {
++        return pathMatch[1];
++      }
+ 
+       const hashMatch = window.location.hash.match(/#(?:\/c\/)?([a-zA-Z0-9_-]+)/);
+-      if (hashMatch && hashMatch[1] && hashMatch[1] !== 'root' && hashMatch[1] !== 'admin' && hashMatch[1] !== 'studio') {
++      if (hashMatch && hashMatch[1] && !isReservedSlug(hashMatch[1])) {
+         return hashMatch[1];
+       }
+ 
+       const queryId = params.get('c') || params.get('id');
+-      if (queryId) return queryId;
++      if (queryId && !isReservedSlug(queryId)) {
++        return queryId;
++      }
+ 
+       return null;
+     };
+@@ -352,26 +472,81 @@ export default function App() {
+         setActiveTheme(profiles[foundIdx].themeKey);
+         setIsStandaloneView(true);
+         setNotFoundId(null);
+-        // Record view event
+-        recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'view', 'Vista de Tarjeta');
+-      } else {
+-        // Query Firestore for this card
+-        getCloudProfile(targetId).then((cloudCard) => {
+-          if (cloudCard) {
+-            setProfiles((prev) => deduplicateProfiles([cloudCard, ...prev]));
++        // Only record public card views when visiting the public card, NOT when accessing the private stats panel
++        if (!isStatsRoute) {
++          const urlParams = new URLSearchParams(window.location.search);
++          const isQrOrigin = urlParams.get('src') === 'qr' || urlParams.get('origin') === 'qr';
++          if (isQrOrigin) {
++            recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'qr_scan', 'Apertura con Origen QR');
++          } else {
++            recordActivity(profiles[foundIdx].publicId, profiles[foundIdx].shortName, 'view', 'Vista de Tarjeta');
++          }
++        }
++      }
++
++      // Always check Firestore for the latest update of this specific card (excluding local demo archetypes)
++      getCloudProfile(targetId).then((cloudCard) => {
++        if (cloudCard) {
++          const cleanId = cloudCard.publicId.trim().toLowerCase();
++          // Demo profiles are local archetype templates; do not allow stale remote cloud documents to override canonical local archetypes
++          if (cleanId.startsWith('demo-')) {
++            return;
++          }
++          setProfiles((prev) => {
++            const exists = prev.some((p) => p.publicId.trim().toLowerCase() === cleanId);
++            const updatedList = exists
++              ? prev.map((p) => (p.publicId.trim().toLowerCase() === cleanId ? cloudCard : p))
++              : [cloudCard, ...prev];
++            return deduplicateProfiles(updatedList);
++          });
++          if (foundIdx === -1) {
+             setCurrentIndex(0);
+             setActiveTheme(cloudCard.themeKey);
+             setIsStandaloneView(true);
+             setNotFoundId(null);
+-            recordActivity(cloudCard.publicId, cloudCard.shortName, 'view', 'Vista de Tarjeta (Cloud)');
+-          } else {
+-            setNotFoundId(targetId);
++            if (!isStatsRoute) {
++              recordActivity(cloudCard.publicId, cloudCard.shortName, 'view', 'Vista de Tarjeta (Cloud)');
++            }
+           }
+-        });
+-      }
++        } else if (foundIdx === -1) {
++          setNotFoundId(targetId);
++        }
++      });
+     }
+   }, [profiles]);
+ 
++  // Listen for hash & history changes (e.g. clicking #alta or browser back/forward)
++  useEffect(() => {
++    const handleLocationChange = () => {
++      const hash = window.location.hash.toLowerCase();
++      const path = window.location.pathname.toLowerCase();
++      if (
++        hash === '#alta' ||
++        hash === '#/alta' ||
++        hash === '#registro' ||
++        hash === '#/registro' ||
++        hash === '#onboarding' ||
++        hash === '#/onboarding' ||
++        path === '/alta' ||
++        path === '/registro' ||
++        path === '/onboarding'
++      ) {
++        setIsHome(true);
++        setIsOnboardingOpen(true);
++        setNotFoundId(null);
++        setIsStandaloneView(false);
++        setIsDashboardOpen(false);
++      }
++    };
++
++    window.addEventListener('hashchange', handleLocationChange);
++    window.addEventListener('popstate', handleLocationChange);
++    return () => {
++      window.removeEventListener('hashchange', handleLocationChange);
++      window.removeEventListener('popstate', handleLocationChange);
++    };
++  }, []);
++
+   // Keyboard navigation & modal dismiss
+   useEffect(() => {
+     const handleKeyDown = (e: KeyboardEvent) => {
+@@ -423,7 +598,7 @@ export default function App() {
+         setActiveTheme(profiles[targetIdx].themeKey);
+       }
+     }
+-    recordActivity(currentProfile.publicId, currentProfile.shortName, 'qr_scan', 'Simulación Escaneo QR');
++    // Opening the modal merely displays the QR code on screen; does NOT count as a QR scan
+     setIsQROpen(true);
+   };
+ 
+@@ -674,6 +849,31 @@ export default function App() {
+           <p className="text-stone-600 mt-2 max-w-md text-sm leading-relaxed">
+             El enlace que estás intentando abrir no corresponde a una tarjeta activa en este momento. Por favor verifica el enlace o solicita una tarjeta actualizada.
+           </p>
++
++          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
++            <button
++              onClick={() => {
++                setNotFoundId(null);
++                setIsHome(true);
++                setIsStandaloneView(false);
++                window.history.pushState({}, '', '/');
++              }}
++              className="w-full sm:w-auto px-5 py-2.5 bg-[#00685f] hover:bg-[#008378] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
++            >
++              <ArrowLeft className="w-4 h-4" />
++              <span>Ir a la Página Principal</span>
++            </button>
++            <a
++              href="https://wa.me/524424799017?text=Hola%20Tribu%20Creativa%20QRO,%20tengo%20una%20duda%20sobre%20un%20enlace%20de%20tarjeta%20digital."
++              target="_blank"
++              rel="noopener noreferrer"
++              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
++            >
++              <MessageCircle className="w-4 h-4" />
++              <span>Contactar Asesor por WhatsApp</span>
++            </a>
++          </div>
++
+           <div className="mt-8 text-center text-xs text-stone-400">
+             Tribu Creativa QRO • Tarjetas Digitales Profesionales
+           </div>
+@@ -721,13 +921,15 @@ export default function App() {
+           <button
+             onClick={() => {
+               setNotFoundId(null);
++              setIsHome(true);
++              setIsStandaloneView(false);
+               setCurrentIndex(0);
+               window.history.pushState({}, '', '/');
+             }}
+             className="px-5 py-2.5 bg-[#00685f] hover:bg-[#008378] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+           >
+             <ArrowLeft className="w-4 h-4" />
+-            <span>Volver al Directorio Completo</span>
++            <span>Volver a la Página Principal</span>
+           </button>
+         </div>
+       </div>
+@@ -767,6 +969,7 @@ export default function App() {
+           onUpdatePin={handleUpdatePin}
+           onLogoutAdmin={handleLogoutAdmin}
+           onDeleteProfile={handleDeleteProfile}
++          onOpenOnboardingWizard={() => setIsOnboardingOpen(true)}
+           onOpenDelivery={(pubId) => {
+             const idx = profiles.findIndex((p) => p.publicId === pubId);
+             if (idx !== -1) {
+@@ -807,6 +1010,7 @@ export default function App() {
+           onClose={() => setIsDeliveryOpen(false)}
+           profile={currentProfile}
+           onShowToast={showToast}
++          onUpdateProfile={handleSaveProfile}
+         />
+         <QRModal
+           key={`qr-dash-${currentProfile.publicId}`}
+@@ -837,6 +1041,7 @@ export default function App() {
+         onLockSession={() => {
+           try {
+             sessionStorage.removeItem(`client_auth_${currentProfile.publicId.toLowerCase()}`);
++            sessionStorage.removeItem(`client_session_token_${currentProfile.publicId.toLowerCase()}`);
+           } catch {}
+           setIsClientStatsOpen(false);
+           setIsStandaloneView(true);
+@@ -964,7 +1169,6 @@ export default function App() {
+             }
+           }}
+           profile={targetPinProfile || currentProfile}
+-          adminPin={adminPin}
+           onSuccess={() => {
+             const active = targetPinProfile || currentProfile;
+             const targetIdx = profiles.findIndex(
+@@ -1025,6 +1229,7 @@ export default function App() {
+             setIsStandaloneView(true);
+             window.history.pushState({}, '', `/c/${pubId}`);
+           }}
++          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+         />
+ 
+         <AdminAccessModal
+@@ -1057,7 +1262,6 @@ export default function App() {
+             }
+           }}
+           profile={targetPinProfile || currentProfile}
+-          adminPin={adminPin}
+           onSuccess={() => {
+             const active = targetPinProfile || currentProfile;
+             const targetIdx = profiles.findIndex(
+@@ -1075,6 +1279,31 @@ export default function App() {
+             showToast(`¡Bienvenida/o ${active.shortName}! Acceso concedido al panel.`);
+           }}
+         />
++
++        <ClientOnboardingWizard
++          isOpen={isOnboardingOpen}
++          onClose={() => {
++            setIsOnboardingOpen(false);
++            if (
++              window.location.hash.includes('alta') ||
++              window.location.hash.includes('registro') ||
++              window.location.hash.includes('onboarding') ||
++              window.location.pathname.includes('/alta') ||
++              window.location.pathname.includes('/registro')
++            ) {
++              window.history.pushState({}, '', '/');
++            }
++          }}
++          onSuccess={(newP) => {
++            handleCreateProfile(newP);
++            setIsOnboardingOpen(false);
++            setIsHome(false);
++            setIsStandaloneView(true);
++            window.history.pushState({}, '', `/c/${newP.publicId}`);
++          }}
++          onShowToast={showToast}
++          existingIds={profiles.map((p) => p.publicId.toLowerCase())}
++        />
+       </div>
+     );
+   }
+@@ -1104,10 +1333,15 @@ export default function App() {
+         isDashboardActive={isDashboardOpen}
+         onLogoutAdmin={handleLogoutAdmin}
+         onOpenDelivery={() => setIsDeliveryOpen(true)}
++        onOpenInviteClient={() => setIsInviteModalOpen(true)}
+         onBackHome={() => {
+           setIsHome(true);
+           window.history.pushState({}, '', '/');
+         }}
++        profiles={profiles}
++        currentIndex={currentIndex}
++        onSelectProfile={handleSelectProfile}
++        onOpenEditProfile={() => setIsEditOpen(true)}
+       />
+ 
+       {/* Main Workspace Layout */}
+@@ -1128,26 +1362,74 @@ export default function App() {
+           onOpenDashboard={() => setIsDashboardOpen(true)}
+           onLogoutAdmin={handleLogoutAdmin}
+           onOpenDelivery={() => setIsDeliveryOpen(true)}
++          onOpenInviteClient={() => setIsInviteModalOpen(true)}
++          onShowToast={showToast}
++          onOpenEditSpecificProfile={(pubId) => {
++            const idx = profiles.findIndex((p) => p.publicId === pubId);
++            if (idx !== -1) {
++              handleSelectProfile(idx);
++            }
++            setIsEditOpen(true);
++          }}
+         />
+ 
+         {/* Central Workspace: Interactive Smartphone Simulator */}
+         <main className="flex-1 bg-white p-3 sm:p-6 lg:p-8 flex flex-col items-center justify-start overflow-y-auto">
+-          {/* Device Controls Bar */}
+-          <div className="w-full max-w-md flex items-center justify-between mb-4 bg-[#f3f4f3] px-4 py-2 rounded-2xl border border-stone-200">
+-            <div className="flex items-center gap-2">
+-              <span
+-                className={`w-2.5 h-2.5 rounded-full ${
+-                  currentProfile.published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+-                }`}
+-              />
+-              <span className="text-[12px] font-semibold text-[#1a1c1c]">
+-                {deviceScale === 'compact'
+-                  ? 'Simulador Móvil Compacto (360 × 740 px)'
+-                  : 'Simulador iPhone 15 Pro (390 × 844 px)'}
+-                {!currentProfile.published && ' [En Pausa]'}
+-              </span>
++          {/* Device Controls Bar with Quick Card Navigation & Instant Link Copy */}
++          <div className="w-full max-w-md flex items-center justify-between mb-4 bg-[#f3f4f3] px-3 sm:px-4 py-2 rounded-2xl border border-stone-200 gap-2">
++            <div className="flex items-center gap-1.5 min-w-0">
++              {/* Previous / Next Card Cycler */}
++              <div className="flex items-center gap-0.5 shrink-0">
++                <button
++                  onClick={() => handleSelectProfile((currentIndex - 1 + profiles.length) % profiles.length)}
++                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors cursor-pointer"
++                  title="Tarjeta anterior (tecla anterior)"
++                >
++                  <ChevronLeft className="w-3.5 h-3.5" />
++                </button>
++                <button
++                  onClick={() => handleSelectProfile((currentIndex + 1) % profiles.length)}
++                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors cursor-pointer"
++                  title="Siguiente tarjeta (tecla siguiente)"
++                >
++                  <ChevronRight className="w-3.5 h-3.5" />
++                </button>
++              </div>
++
++              <div className="flex items-center gap-1.5 min-w-0">
++                <span
++                  className={`w-2 h-2 rounded-full shrink-0 ${
++                    currentProfile.published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
++                  }`}
++                  title={currentProfile.published ? 'Tarjeta Activa' : 'Tarjeta Pausada'}
++                />
++                <span className="text-xs font-bold text-stone-900 truncate">
++                  {currentProfile.shortName}
++                </span>
++                <button
++                  onClick={() => {
++                    const url = `${window.location.origin}/c/${currentProfile.publicId}`;
++                    navigator.clipboard.writeText(url).then(() => {
++                      showToast(`Enlace copiado: /c/${currentProfile.publicId}`);
++                    });
++                  }}
++                  className="px-1.5 py-0.5 rounded text-[10px] font-mono text-teal-800 bg-teal-100/80 hover:bg-teal-200 transition-colors flex items-center gap-1 cursor-pointer truncate shrink-0"
++                  title="Clic para copiar enlace público"
++                >
++                  <Copy className="w-2.5 h-2.5" />
++                  <span className="truncate max-w-[120px]">/c/{currentProfile.publicId}</span>
++                </button>
++              </div>
+             </div>
+-            <div className="flex items-center gap-1.5">
++
++            <div className="flex items-center gap-1 shrink-0">
++              <button
++                onClick={() => setIsEditOpen(true)}
++                className="p-1.5 rounded-lg text-[#00685f] hover:bg-teal-50 transition-colors cursor-pointer"
++                title="Editar datos de esta tarjeta en el Studio"
++              >
++                <Edit3 className="w-3.5 h-3.5" />
++              </button>
+               <button
+                 onClick={() => setDeviceScale(deviceScale === 'standard' ? 'compact' : 'standard')}
+                 className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+@@ -1155,16 +1437,16 @@ export default function App() {
+                     ? 'bg-stone-300 text-stone-900 font-bold'
+                     : 'text-stone-500 hover:text-stone-800'
+                 }`}
+-                title="Alternar entre 390px y 360px compacto"
++                title="Alternar entre iPhone (390px) y Móvil Compacto (360px)"
+               >
+-                <Smartphone className="w-4 h-4" />
++                <Smartphone className="w-3.5 h-3.5" />
+               </button>
+               <button
+                 onClick={() => setIsStandaloneView(true)}
+                 className="p-1.5 rounded-lg text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
+                 title="Ver Tarjeta en Pantalla Completa"
+               >
+-                <Maximize2 className="w-4 h-4" />
++                <Maximize2 className="w-3.5 h-3.5" />
+               </button>
+             </div>
+           </div>
+@@ -1243,7 +1525,6 @@ export default function App() {
+           }
+         }}
+         profile={targetPinProfile || currentProfile}
+-        adminPin={adminPin}
+         onSuccess={() => {
+           const active = targetPinProfile || currentProfile;
+           setIsClientPinModalOpen(false);
+@@ -1289,6 +1570,40 @@ export default function App() {
+         onClose={() => setIsDeliveryOpen(false)}
+         profile={currentProfile}
+         onShowToast={showToast}
++        onUpdateProfile={handleSaveProfile}
++      />
++
++      <ClientOnboardingWizard
++        isOpen={isOnboardingOpen}
++        onClose={() => {
++          setIsOnboardingOpen(false);
++          if (
++            window.location.hash.includes('alta') ||
++            window.location.hash.includes('registro') ||
++            window.location.hash.includes('onboarding') ||
++            window.location.pathname.includes('/alta') ||
++            window.location.pathname.includes('/registro')
++          ) {
++            window.history.pushState({}, '', '/');
++          }
++        }}
++        onSuccess={(newP) => {
++          handleCreateProfile(newP);
++          setIsOnboardingOpen(false);
++          setIsHome(false);
++          setIsStandaloneView(true);
++          window.history.pushState({}, '', `/c/${newP.publicId}`);
++        }}
++        onShowToast={showToast}
++        existingIds={profiles.map((p) => p.publicId.toLowerCase())}
++      />
++
++      {/* Invite Client (Concierge Onboarding) Modal for Studio */}
++      <InviteClientModal
++        isOpen={isInviteModalOpen}
++        onClose={() => setIsInviteModalOpen(false)}
++        onShowToast={showToast}
++        onOpenWizardNow={() => setIsOnboardingOpen(true)}
+       />
+     </div>
+   );
+diff --git a/src/components/ClientStatsView.tsx b/src/components/ClientStatsView.tsx
+index ed6866f..3b836b3 100644
+--- a/src/components/ClientStatsView.tsx
++++ b/src/components/ClientStatsView.tsx
+@@ -1,10 +1,24 @@
+-import React, { useState, useEffect } from 'react';
++import React, { useState, useEffect, useMemo } from 'react';
+ import { ParticipantProfile } from '../types/card';
+ import { getStoredStats } from '../utils/analytics';
+ import { CapturedLead } from '../types/analytics';
+-import { getLeadsForProfile, updateLeadStatus, deleteLead, seedMockLeads } from '../services/leadService';
++import {
++  getLeadsForProfile,
++  updateLeadStatus,
++  updateLeadFollowUp,
++  deleteLead,
++  seedMockLeads,
++  UpdateLeadFollowUpPayload
++} from '../services/leadService';
++import {
++  getArchetypeTerminology,
++  getLocalTodayDateString,
++  getLeadActionTiming,
++  generateWhatsAppFollowUpUrl
++} from '../utils/crmTerminology';
+ import { WallpaperModal } from './WallpaperModal';
+ import { EmailSignatureModal } from './EmailSignatureModal';
++import { LeadDetailModal } from './LeadDetailModal';
+ import {
+   Eye,
+   Download,
+@@ -25,8 +39,20 @@ import {
+   Send,
+   FileCheck,
+   Lock,
+-  Mic
++  Mic,
++  Search,
++  AlertTriangle,
++  Calendar,
++  ExternalLink,
++  ChevronRight,
++  Filter
+ } from 'lucide-react';
++import {
++  calculateCardActivitySummary,
++  calculateTitularOutcomesSummary,
++  formatOutcomeDisplayLabel
++} from '../utils/metricsCalculations';
++import { getOutcomeTerminology } from '../utils/crmTerminology';
+ import { MeetingIntelligenceView } from './MeetingIntelligenceView';
+ 
+ interface ClientStatsViewProps {
+@@ -43,25 +69,29 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+   onLockSession
+ }) => {
+   const [leads, setLeads] = useState<CapturedLead[]>([]);
+-  const [leadsFilter, setLeadsFilter] = useState<'todos' | 'nuevo' | 'contactado' | 'reunion' | 'cerrado'>('todos');
++  const [quickFilter, setQuickFilter] = useState<'todos' | 'hoy' | 'vencidos' | 'sin_proximo_paso'>('todos');
++  const [statusFilter, setStatusFilter] = useState<'todos' | 'nuevo' | 'contactado' | 'reunion' | 'cerrado' | 'descartado'>('todos');
++  const [searchTerm, setSearchTerm] = useState('');
+   const [isLoadingLeads, setIsLoadingLeads] = useState(true);
+   const [isWallpaperOpen, setIsWallpaperOpen] = useState(false);
+   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
++  const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<CapturedLead | null>(null);
++  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+   const [toastMessage, setToastMessage] = useState<string | null>(null);
+ 
++  const terminology = getArchetypeTerminology(profile);
++  const todayStr = getLocalTodayDateString();
++
+   const [activeModuleTab, setActiveModuleTab] = useState<'crm' | 'meetings'>(() => {
+     try {
+       const urlParams = new URLSearchParams(window.location.search);
+-      if (urlParams.get('tab') === 'crm' || window.location.hash.includes('crm')) {
+-        return 'crm';
+-      }
+       if (urlParams.get('tab') === 'meetings' || window.location.hash.includes('meetings')) {
+         return 'meetings';
+       }
++      if (urlParams.get('tab') === 'crm' || window.location.hash.includes('crm')) {
++        return 'crm';
++      }
+     } catch {}
+-    if (profile.features?.hasMeetingIntelligence) {
+-      return 'meetings';
+-    }
+     return 'crm';
+   });
+ 
+@@ -82,12 +112,29 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+     }
+   };
+ 
++  const isDemoProfile = profile.publicId.startsWith('demo-');
++
+   const handleSeedMockLeads = async () => {
++    if (!isDemoProfile) {
++      showToast('Acción disponible exclusivamente en perfiles de demostración.');
++      return;
++    }
++    if (
++      !window.confirm(
++        '¿Deseas restaurar los contactos de ejemplo en este perfil de prueba? Se restablecerán los datos de demostración.'
++      )
++    ) {
++      return;
++    }
+     setIsLoadingLeads(true);
+     try {
+-      const mock = await seedMockLeads(profile.publicId);
+-      setLeads(mock);
+-      showToast('¡Contactos de ejemplo cargados con éxito!');
++      const res = await seedMockLeads(profile.publicId);
++      if (res.success) {
++        setLeads(res.leads);
++        showToast('¡Contactos de ejemplo restaurados con éxito!');
++      } else {
++        showToast(res.error || 'Error al restaurar contactos de ejemplo.');
++      }
+     } catch {
+       showToast('Error al cargar contactos de ejemplo.');
+     } finally {
+@@ -100,59 +147,119 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+   }, [profile.publicId]);
+ 
+   const stats = getStoredStats();
+-  const cardStats = stats[profile.publicId] || {
+-    publicId: profile.publicId,
+-    views: 1,
+-    qrScans: 1,
+-    shares: 0,
+-    vcardDownloads: 0,
+-    whatsappClicks: 0,
+-    callClicks: 0,
+-    emailClicks: 0,
+-    calendarClicks: 0,
+-    linkClicks: 0,
+-    videoPlays: 0,
+-    leadsCaptured: leads.length,
+-    lastActive: new Date().toISOString()
+-  };
++  const rawProfileStats = stats[profile.publicId];
+ 
+-  const totalInteractions =
+-    cardStats.vcardDownloads +
+-    cardStats.whatsappClicks +
+-    leads.length +
+-    cardStats.shares +
+-    cardStats.linkClicks;
+-
+-  const conversionRate =
+-    cardStats.views > 0
+-      ? (((cardStats.vcardDownloads + cardStats.whatsappClicks + leads.length) / cardStats.views) * 100).toFixed(1)
+-      : '0.0';
+-
+-  const filteredLeads = leads.filter((l) => {
+-    if (leadsFilter === 'todos') return true;
+-    return l.status === leadsFilter;
+-  });
++  // Activity summary computed via shared selector
++  const activitySummary = useMemo(
++    () => calculateCardActivitySummary(rawProfileStats, profile.publicId),
++    [rawProfileStats, profile.publicId]
++  );
++
++  // Titular registered outcomes computed via shared selector (excludes isDemo leads for real customer profiles)
++  const outcomeStats = useMemo(
++    () => calculateTitularOutcomesSummary(leads, isDemoProfile),
++    [leads, isDemoProfile]
++  );
++
++  const handleUpdateLead = async (
++    leadId: string,
++    updates: UpdateLeadFollowUpPayload
++  ): Promise<boolean> => {
++    const res = await updateLeadFollowUp(profile.publicId, leadId, updates);
++    if (res.success && res.lead) {
++      setLeads((prev) => prev.map((l) => (l.id === leadId ? res.lead! : l)));
++      if (selectedLeadForDetail?.id === leadId) {
++        setSelectedLeadForDetail(res.lead);
++      }
++      return true;
++    }
++    return false;
++  };
+ 
+   const handleStatusChange = async (leadId: string, newStatus: CapturedLead['status']) => {
+-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, status: newStatus } : l)));
+-    await updateLeadStatus(profile.publicId, leadId, newStatus);
+-    showToast(`Estado de prospecto actualizado a "${newStatus}"`);
++    const ok = await handleUpdateLead(leadId, { status: newStatus });
++    if (ok) {
++      showToast(`Estado comercial actualizado a "${newStatus}"`);
++    } else {
++      showToast('No se pudo actualizar el estado.');
++    }
++  };
++
++  const handleOpenDetail = (lead: CapturedLead) => {
++    setSelectedLeadForDetail(lead);
++    setIsDetailModalOpen(true);
+   };
+ 
+   const handleDeleteLead = async (leadId: string, leadName: string) => {
+     if (window.confirm(`¿Deseas eliminar el registro de ${leadName}?`)) {
+-      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+-      await deleteLead(profile.publicId, leadId);
+-      showToast(`Contacto de ${leadName} eliminado.`);
++      const ok = await deleteLead(profile.publicId, leadId);
++      if (ok) {
++        setLeads((prev) => prev.filter((l) => l.id !== leadId));
++        if (selectedLeadForDetail?.id === leadId) {
++          setIsDetailModalOpen(false);
++          setSelectedLeadForDetail(null);
++        }
++        showToast(`Contacto de ${leadName} eliminado.`);
++      } else {
++        showToast(`Error al eliminar: el contacto de ${leadName} se conserva.`);
++      }
+     }
+   };
+ 
+-  const generateWhatsAppFollowUpUrl = (lead: CapturedLead) => {
+-    const rawPhone = lead.phone.replace(/[^0-9]/g, '');
+-    const cleanPhone = rawPhone.startsWith('52') ? rawPhone : `52${rawPhone}`;
+-    const text = `Hola ${lead.name}, gusto en saludarte. Recibí tus datos a través de mi tarjeta digital ejecutiva. ¿Cuándo tendrías 15 minutos para platicar sobre cómo podemos colaborar?`;
+-    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+-  };
++  const counts = useMemo(() => {
++    return {
++      todos: leads.length,
++      hoy: leads.filter((l) => getLeadActionTiming(l, todayStr) === 'hoy').length,
++      vencidos: leads.filter((l) => getLeadActionTiming(l, todayStr) === 'vencido').length,
++      sin_proximo_paso: leads.filter(
++        (l) => !l.nextAction || !l.nextAction.trim() || l.nextActionCompleted
++      ).length
++    };
++  }, [leads, todayStr]);
++
++  const filteredLeads = useMemo(() => {
++    return leads.filter((l) => {
++      // 1. Search term filter
++      if (searchTerm.trim()) {
++        const q = searchTerm.toLowerCase();
++        const matchName = (l.name || '').toLowerCase().includes(q);
++        const matchCompany = (l.company || '').toLowerCase().includes(q);
++        const matchRole = (l.role || '').toLowerCase().includes(q);
++        const matchSolution = (l.solutionTitle || '').toLowerCase().includes(q);
++        const matchMessage = (l.message || '').toLowerCase().includes(q);
++        const matchAction = (l.nextAction || '').toLowerCase().includes(q);
++        const matchNotes = (l.notes || '').toLowerCase().includes(q);
++        if (
++          !matchName &&
++          !matchCompany &&
++          !matchRole &&
++          !matchSolution &&
++          !matchMessage &&
++          !matchAction &&
++          !matchNotes
++        ) {
++          return false;
++        }
++      }
++
++      // 2. Quick view filter
++      if (quickFilter === 'hoy') {
++        if (getLeadActionTiming(l, todayStr) !== 'hoy') return false;
++      } else if (quickFilter === 'vencidos') {
++        if (getLeadActionTiming(l, todayStr) !== 'vencido') return false;
++      } else if (quickFilter === 'sin_proximo_paso') {
++        const hasActiveAction = Boolean(l.nextAction && l.nextAction.trim() && !l.nextActionCompleted);
++        if (hasActiveAction) return false;
++      }
++
++      // 3. Commercial status filter
++      if (statusFilter !== 'todos') {
++        if (l.status !== statusFilter) return false;
++      }
++
++      return true;
++    });
++  }, [leads, quickFilter, statusFilter, searchTerm, todayStr]);
+ 
+   return (
+     <div className="min-h-screen bg-[#f0f2f1] flex flex-col items-center p-4 sm:p-6 text-[#1a1c1c] antialiased">
+@@ -263,287 +370,769 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+           <MeetingIntelligenceView profile={profile} leads={leads} onShowToast={showToast} />
+         ) : (
+           <>
+-            {/* High-Value Toolkit Bar */}
+-            <div className="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-4 text-white shadow-md">
+-          <div className="flex items-center gap-2 mb-2">
+-            <Sparkles className="w-4 h-4 text-teal-300" />
+-            <h2 className="text-xs font-bold uppercase tracking-wider text-teal-200">
+-              Herramientas de Cierre & Difusión
+-            </h2>
+-          </div>
+-          <p className="text-[11px] text-stone-300 mb-3 leading-relaxed">
+-            Genera recursos ejecutivos de alta calidad para compartir tu contacto sin fricción en eventos o en cada correo que envíes.
+-          </p>
+-          <div className="grid grid-cols-2 gap-2">
+-            <button
+-              onClick={() => setIsWallpaperOpen(true)}
+-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
+-            >
+-              <Smartphone className="w-4 h-4 text-teal-300" />
+-              <span>Fondo con QR</span>
+-            </button>
+-            <button
+-              onClick={() => setIsSignatureOpen(true)}
+-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
+-            >
+-              <Mail className="w-4 h-4 text-teal-300" />
+-              <span>Firma de Correo</span>
+-            </button>
+-          </div>
+-        </div>
+-
+-        {/* Overview KPI Cards */}
+-        <div className="grid grid-cols-2 gap-3">
+-          {/* Card 1: Vistas */}
+-          <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs">
+-            <div className="flex items-center justify-between text-stone-500 mb-1">
+-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+-                Vistas / Escaneos
+-              </span>
+-              <Eye className="w-4 h-4 text-[#00685f]" />
+-            </div>
+-            <p className="text-2xl font-black text-stone-900">{cardStats.views}</p>
+-            <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+-              {cardStats.qrScans} por código QR
+-            </p>
+-          </div>
++            {/* 1. Quick Follow-up Summary Bar */}
++            <div className="grid grid-cols-4 gap-2">
++              <button
++                type="button"
++                onClick={() => setQuickFilter('vencidos')}
++                className={`p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
++                  quickFilter === 'vencidos'
++                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
++                    : counts.vencidos > 0
++                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-200'
++                    : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
++                }`}
++              >
++                <div className="flex items-center justify-center gap-1 mb-0.5">
++                  <AlertTriangle
++                    className={`w-3.5 h-3.5 ${
++                      quickFilter === 'vencidos'
++                        ? 'text-white'
++                        : counts.vencidos > 0
++                        ? 'text-rose-600'
++                        : 'text-stone-400'
++                    }`}
++                  />
++                  <span className="text-[10px] font-bold uppercase tracking-wider">Vencidos</span>
++                </div>
++                <p className="text-lg font-black leading-none">{counts.vencidos}</p>
++              </button>
+ 
+-          {/* Card 2: vCards Guardadas */}
+-          <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs">
+-            <div className="flex items-center justify-between text-stone-500 mb-1">
+-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+-                Guardados en Agenda
+-              </span>
+-              <Download className="w-4 h-4 text-emerald-600" />
+-            </div>
+-            <p className="text-2xl font-black text-stone-900">{cardStats.vcardDownloads}</p>
+-            <p className="text-[10px] text-stone-500 mt-1">vCard descargada al cel</p>
+-          </div>
++              <button
++                type="button"
++                onClick={() => setQuickFilter('hoy')}
++                className={`p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
++                  quickFilter === 'hoy'
++                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
++                    : counts.hoy > 0
++                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
++                    : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
++                }`}
++              >
++                <div className="flex items-center justify-center gap-1 mb-0.5">
++                  <Clock
++                    className={`w-3.5 h-3.5 ${
++                      quickFilter === 'hoy'
++                        ? 'text-white'
++                        : counts.hoy > 0
++                        ? 'text-amber-600'
++                        : 'text-stone-400'
++                    }`}
++                  />
++                  <span className="text-[10px] font-bold uppercase tracking-wider">Hoy</span>
++                </div>
++                <p className="text-lg font-black leading-none">{counts.hoy}</p>
++              </button>
+ 
+-          {/* Card 3: Clics a WhatsApp */}
+-          <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs">
+-            <div className="flex items-center justify-between text-stone-500 mb-1">
+-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+-                Contactos WhatsApp
+-              </span>
+-              <MessageCircle className="w-4 h-4 text-teal-600" />
+-            </div>
+-            <p className="text-2xl font-black text-stone-900">{cardStats.whatsappClicks}</p>
+-            <p className="text-[10px] text-stone-500 mt-1">Conversaciones iniciadas</p>
+-          </div>
++              <button
++                type="button"
++                onClick={() => setQuickFilter('sin_proximo_paso')}
++                className={`p-2 sm:p-2.5 px-1 sm:px-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
++                  quickFilter === 'sin_proximo_paso'
++                    ? 'bg-stone-800 text-white border-stone-800 shadow-xs'
++                    : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
++                }`}
++              >
++                <div className="flex items-center justify-center gap-1 mb-0.5">
++                  <Calendar className="w-3.5 h-3.5 text-stone-400" />
++                  <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
++                    Sin paso
++                  </span>
++                </div>
++                <p className="text-lg font-black leading-none">{counts.sin_proximo_paso}</p>
++              </button>
+ 
+-          {/* Card 4: Leads Capturados */}
+-          <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs">
+-            <div className="flex items-center justify-between text-stone-500 mb-1">
+-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+-                Prospectos Recibidos
+-              </span>
+-              <Users className="w-4 h-4 text-amber-600" />
++              <button
++                type="button"
++                onClick={() => setQuickFilter('todos')}
++                className={`p-2 sm:p-2.5 px-1 sm:px-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
++                  quickFilter === 'todos'
++                    ? 'bg-[#00685f] text-white border-[#00685f] shadow-xs'
++                    : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
++                }`}
++              >
++                <div className="flex items-center justify-center gap-1 mb-0.5">
++                  <Users className="w-3.5 h-3.5 text-[#00685f]" />
++                  <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">Todos</span>
++                </div>
++                <p className="text-lg font-black leading-none">{counts.todos}</p>
++              </button>
+             </div>
+-            <p className="text-2xl font-black text-stone-900">{leads.length}</p>
+-            <p className="text-[10px] text-amber-700 font-semibold mt-1">
+-              {conversionRate}% conversión
+-            </p>
+-          </div>
+-        </div>
+ 
+-        {/* SECTION: Mini-CRM Leads Inbox */}
+-        <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm space-y-4">
+-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+-            <div className="flex items-center gap-2">
+-              <div className="w-7 h-7 rounded-xl bg-teal-100 text-[#00685f] flex items-center justify-center font-bold text-xs">
+-                {leads.length}
+-              </div>
+-              <div>
++            {/* 2. SECTION: Mini-CRM Leads Inbox */}
++            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
++              {/* Header & Demo action */}
++              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                 <div className="flex items-center gap-2">
+-                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
+-                    Buzón de Prospectos (Mini-CRM)
+-                  </h2>
+-                  <button
+-                    onClick={handleSeedMockLeads}
+-                    className="text-[10px] text-[#00685f] hover:text-[#00524b] font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200/60 transition-colors cursor-pointer"
+-                    title="Cargar / Restaurar contactos de prueba"
+-                  >
+-                    <Sparkles className="w-3 h-3 text-amber-500" />
+-                    <span>Demo Leads</span>
+-                  </button>
++                  <div className="w-7 h-7 rounded-xl bg-teal-100 text-[#00685f] flex items-center justify-center font-bold text-xs">
++                    {leads.length}
++                  </div>
++                  <div>
++                    <div className="flex items-center gap-2">
++                      <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
++                        Buzón de Prospectos & Próximos Pasos
++                      </h2>
++                      {isDemoProfile && (
++                        <button
++                          onClick={handleSeedMockLeads}
++                          className="text-[10px] text-[#00685f] hover:text-[#00524b] font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200/60 transition-colors cursor-pointer"
++                          title="Restaurar contactos de prueba (solo perfil demo)"
++                        >
++                          <Sparkles className="w-3 h-3 text-amber-500" />
++                          <span>Restaurar Ejemplos</span>
++                        </button>
++                      )}
++                    </div>
++                    <p className="text-[10px] text-stone-400">{terminology.categoryLabel}</p>
++                  </div>
+                 </div>
+-                <p className="text-[10px] text-stone-400">
+-                  Contactos intercambiados desde tu tarjeta ejecutiva
+-                </p>
+               </div>
+-            </div>
+-            {/* Filter Selector */}
+-            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl text-[10px] font-bold overflow-x-auto">
+-              {(['todos', 'nuevo', 'contactado', 'reunion', 'cerrado'] as const).map((filterKey) => (
++
++              {/* Archetype Disclaimer (e.g. Salud / Institucional) */}
++              {terminology.disclaimer && (
++                <div className="p-3 rounded-2xl bg-teal-50/70 border border-teal-200/80 text-xs text-teal-950 flex items-start gap-2.5">
++                  <ShieldCheck className="w-4 h-4 text-[#00685f] shrink-0 mt-0.5" />
++                  <span className="leading-relaxed text-[11px] font-medium">
++                    {terminology.disclaimer}
++                  </span>
++                </div>
++              )}
++
++              {/* Search Bar */}
++              <div className="relative">
++                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
++                <input
++                  type="text"
++                  value={searchTerm}
++                  onChange={(e) => setSearchTerm(e.target.value)}
++                  placeholder="Buscar por nombre, empresa, notas o próximo paso..."
++                  className="w-full pl-8 pr-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-800 focus:bg-white focus:border-[#00685f] outline-none transition-all placeholder-stone-400"
++                />
++              </div>
++
++              {/* Quick Action Filter Tabs */}
++              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                 <button
+-                  key={filterKey}
+-                  onClick={() => setLeadsFilter(filterKey)}
+-                  className={`px-2 py-1 rounded-lg capitalize transition-all cursor-pointer whitespace-nowrap ${
+-                    leadsFilter === filterKey
+-                      ? 'bg-white text-stone-900 shadow-2xs'
+-                      : 'text-stone-500 hover:text-stone-800'
++                  type="button"
++                  onClick={() => setQuickFilter('todos')}
++                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
++                    quickFilter === 'todos'
++                      ? 'bg-stone-900 text-white shadow-2xs'
++                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                   }`}
+                 >
+-                  {filterKey}
++                  <span>Todos</span>
++                  <span
++                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
++                      quickFilter === 'todos'
++                        ? 'bg-stone-800 text-stone-200'
++                        : 'bg-stone-200 text-stone-700'
++                    }`}
++                  >
++                    {counts.todos}
++                  </span>
+                 </button>
+-              ))}
+-            </div>
+-          </div>
+ 
+-          {/* Leads list */}
+-          {isLoadingLeads ? (
+-            <div className="py-8 text-center text-xs text-stone-400">
+-              Cargando prospectos...
+-            </div>
+-          ) : filteredLeads.length === 0 ? (
+-            <div className="p-6 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
+-              <Users className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+-              <p className="text-xs font-bold text-stone-700">
+-                {leadsFilter === 'todos'
+-                  ? 'Aún no has recibido prospectos'
+-                  : `No hay prospectos en estado "${leadsFilter}"`}
+-              </p>
+-              <p className="text-[11px] text-stone-400 mt-1 max-w-xs mx-auto leading-relaxed">
+-                Cuando alguien pulse "Intercambiar Contacto" en tu tarjeta, sus datos llegarán directamente aquí y podrás escribirles por WhatsApp con 1 clic.
+-              </p>
+-              <button
+-                onClick={handleSeedMockLeads}
+-                className="mt-3 px-3.5 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+-              >
+-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+-                <span>Cargar 5 Prospectos Demo</span>
+-              </button>
+-            </div>
+-          ) : (
+-            <div className="space-y-3">
+-              {filteredLeads.map((lead) => {
+-                const statusColors: Record<string, string> = {
+-                  nuevo: 'bg-blue-50 text-blue-700 border-blue-200',
+-                  contactado: 'bg-amber-50 text-amber-700 border-amber-200',
+-                  reunion: 'bg-purple-50 text-purple-700 border-purple-200',
+-                  cerrado: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+-                  descartado: 'bg-stone-100 text-stone-500 border-stone-200'
+-                };
+-
+-                return (
+-                  <div
+-                    key={lead.id}
+-                    className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/60 hover:bg-stone-50 transition-colors space-y-2.5"
++                <button
++                  type="button"
++                  onClick={() => setQuickFilter('hoy')}
++                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
++                    quickFilter === 'hoy'
++                      ? 'bg-amber-500 text-white shadow-2xs'
++                      : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
++                  }`}
++                >
++                  <Clock className="w-3.5 h-3.5" />
++                  <span>Hoy</span>
++                  <span
++                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
++                      quickFilter === 'hoy' ? 'bg-amber-600 text-white' : 'bg-amber-200 text-amber-900'
++                    }`}
+                   >
+-                    <div className="flex items-start justify-between gap-2">
+-                      <div>
+-                        <div className="flex items-center gap-2">
+-                          <span className="text-xs font-bold text-stone-900">{lead.name}</span>
+-                          <span
+-                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border capitalize ${
+-                              statusColors[lead.status]
+-                            }`}
+-                          >
+-                            {lead.status}
+-                          </span>
+-                        </div>
+-                        {(lead.company || lead.role) && (
+-                          <p className="text-[11px] text-stone-500 flex items-center gap-1 mt-0.5">
+-                            <Briefcase className="w-3 h-3 text-stone-400 shrink-0" />
+-                            <span>
+-                              {lead.role ? `${lead.role}` : ''}
+-                              {lead.role && lead.company ? ` • ` : ''}
+-                              {lead.company || ''}
+-                            </span>
+-                          </p>
+-                        )}
+-                      </div>
++                    {counts.hoy}
++                  </span>
++                </button>
+ 
+-                      {/* WhatsApp 1-Click Follow up Button */}
+-                      <a
+-                        href={generateWhatsAppFollowUpUrl(lead)}
+-                        target="_blank"
+-                        rel="noopener noreferrer"
+-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 shrink-0"
+-                        title="Responder por WhatsApp"
++                <button
++                  type="button"
++                  onClick={() => setQuickFilter('vencidos')}
++                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
++                    quickFilter === 'vencidos'
++                      ? 'bg-rose-600 text-white shadow-2xs'
++                      : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
++                  }`}
++                >
++                  <AlertTriangle className="w-3.5 h-3.5" />
++                  <span>Vencidos</span>
++                  <span
++                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
++                      quickFilter === 'vencidos'
++                        ? 'bg-rose-700 text-white'
++                        : 'bg-rose-200 text-rose-900'
++                    }`}
++                  >
++                    {counts.vencidos}
++                  </span>
++                </button>
++
++                <button
++                  type="button"
++                  onClick={() => setQuickFilter('sin_proximo_paso')}
++                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
++                    quickFilter === 'sin_proximo_paso'
++                      ? 'bg-stone-700 text-white shadow-2xs'
++                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
++                  }`}
++                >
++                  <span>Sin próximo paso</span>
++                  <span
++                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
++                      quickFilter === 'sin_proximo_paso'
++                        ? 'bg-stone-600 text-white'
++                        : 'bg-stone-200 text-stone-700'
++                    }`}
++                  >
++                    {counts.sin_proximo_paso}
++                  </span>
++                </button>
++              </div>
++
++              {/* Secondary Pipeline Status Filter Bar */}
++              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
++                <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
++                  <Filter className="w-3 h-3" />
++                  <span>Etapa:</span>
++                </span>
++                {(
++                  [
++                    { id: 'todos', label: 'Cualquiera' },
++                    { id: 'nuevo', label: 'Nuevo' },
++                    { id: 'contactado', label: 'Contactado' },
++                    { id: 'reunion', label: terminology.reunionStageLabel },
++                    { id: 'cerrado', label: terminology.cerradoStageLabel },
++                    { id: 'descartado', label: 'Archivado' }
++                  ] as const
++                ).map((st) => (
++                  <button
++                    key={st.id}
++                    type="button"
++                    onClick={() => setStatusFilter(st.id)}
++                    className={`px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
++                      statusFilter === st.id
++                        ? 'bg-[#00685f] text-white shadow-2xs'
++                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
++                    }`}
++                  >
++                    {st.label}
++                  </button>
++                ))}
++              </div>
++
++              {/* Demo Mode Notice */}
++              {leads.some((l) => l.isDemo) && (
++                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left flex items-start gap-2.5">
++                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
++                  <div>
++                    <p className="text-xs font-bold text-amber-900">
++                      Modo Demostración Local Activo
++                    </p>
++                    <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
++                      Los prospectos se gestionan y guardan exclusivamente en el almacenamiento de
++                      este dispositivo. No se alteran estadísticas cloud ni se envían datos a
++                      producción.
++                    </p>
++                  </div>
++                </div>
++              )}
++
++              {/* Leads list */}
++              {isLoadingLeads ? (
++                <div className="py-8 text-center text-xs text-stone-400">
++                  Cargando prospectos...
++                </div>
++              ) : filteredLeads.length === 0 ? (
++                <div className="p-6 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50 space-y-2">
++                  <Users className="w-8 h-8 text-stone-300 mx-auto mb-1" />
++                  <p className="text-xs font-bold text-stone-800">
++                    {quickFilter === 'hoy'
++                      ? 'No tienes tareas programadas para hoy'
++                      : quickFilter === 'vencidos'
++                      ? '¡Seguimiento al día! No tienes acciones vencidas'
++                      : quickFilter === 'sin_proximo_paso'
++                      ? 'Todos tus prospectos tienen un próximo paso o están concluidos'
++                      : searchTerm.trim()
++                      ? `No hay prospectos que coincidan con "${searchTerm}"`
++                      : 'Aún no tienes prospectos registrados'}
++                  </p>
++                  <p className="text-[11px] text-stone-500 max-w-sm mx-auto leading-relaxed">
++                    {quickFilter === 'hoy'
++                      ? 'Revisa tus acciones en "Vencidos" o programa un siguiente paso para los contactos recientes.'
++                      : quickFilter === 'vencidos'
++                      ? 'Excelente organización. Puedes definir nuevos hitos en la pestaña "Todos".'
++                      : quickFilter === 'sin_proximo_paso'
++                      ? 'Buen control de pipeline. Cuando recibas nuevos contactos, acuerda el siguiente paso.'
++                      : 'Comparte tu tarjeta digital para captar datos con contexto y dar seguimiento 1 a 1.'}
++                  </p>
++                </div>
++              ) : (
++                <div className="space-y-3">
++                  {filteredLeads.map((lead) => {
++                    const statusColors: Record<string, string> = {
++                      nuevo: 'bg-blue-50 text-blue-700 border-blue-200',
++                      contactado: 'bg-amber-50 text-amber-700 border-amber-200',
++                      reunion: 'bg-purple-50 text-purple-700 border-purple-200',
++                      cerrado: 'bg-emerald-50 text-emerald-700 border-emerald-200',
++                      descartado: 'bg-stone-100 text-stone-500 border-stone-200'
++                    };
++
++                    const timing = getLeadActionTiming(lead, todayStr);
++
++                    return (
++                      <div
++                        key={lead.id}
++                        className="p-3.5 rounded-2xl border border-stone-200 bg-white hover:border-teal-300 hover:shadow-xs transition-all space-y-2.5 text-left"
+                       >
+-                        <MessageCircle className="w-3.5 h-3.5" />
+-                        <span>Contactar</span>
+-                      </a>
+-                    </div>
++                        {/* Header Row: Name, Status & Timing */}
++                        <div className="flex items-start justify-between gap-2">
++                          <div className="min-w-0 flex-1">
++                            <div className="flex items-center gap-2 flex-wrap">
++                              <button
++                                type="button"
++                                onClick={() => handleOpenDetail(lead)}
++                                className="text-xs font-extrabold text-stone-900 hover:text-[#00685f] transition-colors cursor-pointer truncate text-left"
++                              >
++                                {lead.name}
++                              </button>
++                              <span
++                                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border capitalize ${
++                                  statusColors[lead.status] || 'bg-stone-100 text-stone-600'
++                                }`}
++                              >
++                                {lead.status}
++                              </span>
++                              {lead.syncStatus === 'pending' && (
++                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full border bg-amber-50 text-amber-800 border-amber-300">
++                                  Pendiente local
++                                </span>
++                              )}
++                            </div>
+ 
+-                    {lead.notes && (
+-                      <div className="p-2 rounded-xl bg-white border border-stone-200 text-[11px] text-stone-700 italic">
+-                        "{lead.notes}"
+-                      </div>
+-                    )}
+-
+-                    <div className="flex items-center justify-between text-[10px] text-stone-400 pt-1 border-t border-stone-200/60">
+-                      <div className="flex items-center gap-3">
+-                        <span className="flex items-center gap-1 font-mono text-stone-600">
+-                          <Phone className="w-3 h-3" />
+-                          {lead.phone}
+-                        </span>
+-                        {lead.email && (
+-                          <span className="flex items-center gap-1 text-stone-600 truncate max-w-[130px]">
+-                            <Mail className="w-3 h-3" />
+-                            {lead.email}
++                            {(lead.company || lead.role) && (
++                              <p className="text-[11px] text-stone-500 flex items-center gap-1 mt-0.5 truncate">
++                                <Briefcase className="w-3 h-3 text-stone-400 shrink-0" />
++                                <span className="truncate">
++                                  {lead.role ? `${lead.role}` : ''}
++                                  {lead.role && lead.company ? ' • ' : ''}
++                                  {lead.company || ''}
++                                </span>
++                              </p>
++                            )}
++                          </div>
++
++                          {/* Registration Date */}
++                          <span className="text-[10px] text-stone-400 font-mono shrink-0">
++                            {new Date(lead.timestamp).toLocaleDateString('es-MX', {
++                              day: 'numeric',
++                              month: 'short'
++                            })}
+                           </span>
++                        </div>
++
++                        {/* Outcomes & Needs / Solution Badges */}
++                        <div className="flex items-center gap-1.5 flex-wrap">
++                          {lead.outcome && (
++                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-bold">
++                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
++                              <span>{formatOutcomeDisplayLabel(lead.outcome, profile.professionalProfile)}</span>
++                              {lead.outcome.registeredAt && (
++                                <span className="text-[9px] text-emerald-600 font-normal">
++                                  • {lead.outcome.registeredAt}
++                                </span>
++                              )}
++                            </div>
++                          )}
++
++                          {lead.solutionTitle && (
++                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal-50 border border-teal-200/80 text-[10px] text-[#00685f] font-semibold">
++                              <Sparkles className="w-3 h-3 shrink-0" />
++                              <span className="truncate">Interés: {lead.solutionTitle}</span>
++                            </div>
++                          )}
++                        </div>
++
++                        {lead.message && (
++                          <div className="text-[11px] text-stone-600 line-clamp-1 italic bg-stone-50 p-1.5 rounded-lg border border-stone-200/60">
++                            "{lead.message}"
++                          </div>
+                         )}
+-                      </div>
+ 
+-                      {/* Status Selector Dropdown */}
+-                      <div className="flex items-center gap-1.5">
+-                        <select
+-                          value={lead.status}
+-                          onChange={(e) =>
+-                            handleStatusChange(lead.id, e.target.value as CapturedLead['status'])
+-                          }
+-                          className="bg-white border border-stone-200 text-stone-700 text-[10px] font-semibold rounded-lg px-2 py-0.5 cursor-pointer focus:outline-none"
++                        {/* Next Action Priority Banner */}
++                        <div
++                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
++                            lead.nextActionCompleted
++                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
++                              : timing === 'vencido'
++                              ? 'bg-rose-50 border-rose-200 text-rose-900'
++                              : timing === 'hoy'
++                              ? 'bg-amber-50 border-amber-200 text-amber-900'
++                              : lead.nextAction
++                              ? 'bg-blue-50 border-blue-200 text-blue-900'
++                              : 'bg-stone-50 border-stone-200 text-stone-500'
++                          }`}
+                         >
+-                          <option value="nuevo">Nuevo</option>
+-                          <option value="contactado">Contactado</option>
+-                          <option value="reunion">Reunión</option>
+-                          <option value="cerrado">Cerrado</option>
+-                          <option value="descartado">Descartado</option>
+-                        </select>
+-                        <button
+-                          type="button"
+-                          onClick={() => handleDeleteLead(lead.id, lead.name)}
+-                          className="p-1 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
+-                          title="Eliminar lead"
+-                        >
+-                          <Trash2 className="w-3 h-3" />
+-                        </button>
++                          <div className="flex items-center gap-2 min-w-0 flex-1">
++                            {lead.nextActionCompleted ? (
++                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
++                            ) : timing === 'vencido' ? (
++                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
++                            ) : timing === 'hoy' ? (
++                              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
++                            ) : lead.nextAction ? (
++                              <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
++                            ) : (
++                              <Calendar className="w-4 h-4 text-stone-400 shrink-0" />
++                            )}
++
++                            <div className="min-w-0 flex-1">
++                              <div className="flex items-center gap-1.5">
++                                <span className="text-[10px] font-extrabold uppercase tracking-wider">
++                                  {lead.nextActionCompleted
++                                    ? 'Realizada'
++                                    : timing === 'vencido'
++                                    ? `Vencida (${lead.nextActionDate})`
++                                    : timing === 'hoy'
++                                    ? 'Hoy'
++                                    : lead.nextActionDate
++                                    ? lead.nextActionDate
++                                    : 'Sin fecha'}
++                                </span>
++                                {lead.nextActionTime && !lead.nextActionCompleted && (
++                                  <span className="text-[10px] font-mono text-stone-500">
++                                    • {lead.nextActionTime}
++                                  </span>
++                                )}
++                              </div>
++                              <p className="text-[11px] font-semibold truncate">
++                                {lead.nextAction || 'Sin próximo paso definido'}
++                              </p>
++                            </div>
++                          </div>
++
++                          <button
++                            type="button"
++                            onClick={() => handleOpenDetail(lead)}
++                            className="text-[10px] font-bold text-[#00685f] hover:underline shrink-0 cursor-pointer"
++                          >
++                            {lead.nextAction ? 'Editar' : '+ Definir'}
++                          </button>
++                        </div>
++
++                        {/* Titular Notes Excerpt (if present) */}
++                        {lead.notes && (
++                          <div className="p-2 rounded-xl bg-stone-50 border border-stone-200 text-[11px] text-stone-700 flex items-start gap-1.5">
++                            <Lock className="w-3 h-3 text-stone-400 shrink-0 mt-0.5" />
++                            <span className="line-clamp-1 italic">"{lead.notes}"</span>
++                          </div>
++                        )}
++
++                        {/* Card Actions Bottom Row */}
++                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-stone-100 gap-2 flex-wrap">
++                          <div className="flex items-center gap-1.5">
++                            <button
++                              type="button"
++                              onClick={() => handleOpenDetail(lead)}
++                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-bold transition-colors cursor-pointer"
++                            >
++                              <span>Ficha & Notas</span>
++                              <ChevronRight className="w-3 h-3 text-stone-400" />
++                            </button>
++
++                            <select
++                              value={lead.status}
++                              onChange={(e) =>
++                                handleStatusChange(lead.id, e.target.value as CapturedLead['status'])
++                              }
++                              className="bg-white border border-stone-200 text-stone-700 text-[10px] font-semibold rounded-lg px-2 py-1 cursor-pointer focus:outline-none"
++                            >
++                              <option value="nuevo">Nuevo</option>
++                              <option value="contactado">Contactado</option>
++                              <option value="reunion">{terminology.reunionStageLabel}</option>
++                              <option value="cerrado">{terminology.cerradoStageLabel}</option>
++                              <option value="descartado">Archivado</option>
++                            </select>
++                          </div>
++
++                          <div className="flex items-center gap-1.5">
++                            {/* WhatsApp Follow-up Button */}
++                            <a
++                              href={generateWhatsAppFollowUpUrl(lead)}
++                              target="_blank"
++                              rel="noopener noreferrer"
++                              className="flex items-center gap-1 px-3 py-1 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
++                              title="Contactar por WhatsApp sin alterar estado automáticamente"
++                            >
++                              <MessageCircle className="w-3 h-3" />
++                              <span>WhatsApp</span>
++                            </a>
++
++                            <button
++                              type="button"
++                              onClick={() => handleDeleteLead(lead.id, lead.name)}
++                              className="p-1 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
++                              title="Eliminar contacto"
++                            >
++                              <Trash2 className="w-3.5 h-3.5" />
++                            </button>
++                          </div>
++                        </div>
+                       </div>
+-                    </div>
+-                  </div>
+-                );
+-              })}
++                    );
++                  })}
++                </div>
++              )}
+             </div>
+-          )}
+-        </div>
+ 
+-        {/* Detailed Breakdown */}
+-        <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm space-y-3">
+-          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">
+-            Detalle de Interacciones
+-          </h2>
+-          <div className="divide-y divide-stone-100 text-xs">
+-            <div className="py-2.5 flex items-center justify-between">
+-              <span className="text-stone-600">Compartidas por WhatsApp</span>
+-              <span className="font-bold text-stone-900">{cardStats.shares}</span>
++            {/* 3. SECTION: Resultados Registrados */}
++            <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm space-y-3">
++              <div className="flex items-center justify-between">
++                <div className="flex items-center gap-2">
++                  <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
++                    {outcomeStats.total}
++                  </div>
++                  <div>
++                    <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
++                      {isDemoProfile
++                        ? 'Resultados Registrados (Ejemplos Demo)'
++                        : 'Resultados Registrados por Ti'}
++                    </h2>
++                    <p className="text-[10px] text-stone-400">
++                      {isDemoProfile
++                        ? 'Ejemplos de acuerdos y logros comerciales para demostración'
++                        : 'Acuerdos y logros comerciales confirmados directamente'}
++                    </p>
++                  </div>
++                </div>
++                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
++                  {outcomeStats.total} / {outcomeStats.leadsCount} contactos
++                </span>
++              </div>
++
++              <p className="text-[11px] text-stone-500 leading-relaxed">
++                {isDemoProfile
++                  ? 'Cifras de ejemplo documentadas en los contactos de demostración. Son independientes de las etapas del embudo comercial.'
++                  : 'Cifras declaradas explícitamente por ti en la ficha de cada contacto. Son independientes de la etapa del embudo comercial y no corresponden a conversiones automáticas calculadas.'}
++              </p>
++
++              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
++                <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 text-left">
++                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block truncate" title={getOutcomeTerminology('venta_confirmada', profile.professionalProfile).label}>
++                    {getOutcomeTerminology('venta_confirmada', profile.professionalProfile).label}
++                  </span>
++                  <p className="text-xl font-black text-emerald-950 mt-0.5">
++                    {outcomeStats.byType.venta_confirmada}
++                  </p>
++                </div>
++                <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200/80 text-left">
++                  <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 block truncate" title={getOutcomeTerminology('cita_confirmada', profile.professionalProfile).label}>
++                    {getOutcomeTerminology('cita_confirmada', profile.professionalProfile).label}
++                  </span>
++                  <p className="text-xl font-black text-teal-950 mt-0.5">
++                    {outcomeStats.byType.cita_confirmada}
++                  </p>
++                </div>
++                <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-200/80 text-left">
++                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 block truncate" title={getOutcomeTerminology('colaboracion_acordada', profile.professionalProfile).label}>
++                    {getOutcomeTerminology('colaboracion_acordada', profile.professionalProfile).label}
++                  </span>
++                  <p className="text-xl font-black text-blue-950 mt-0.5">
++                    {outcomeStats.byType.colaboracion_acordada}
++                  </p>
++                </div>
++                <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-200/80 text-left">
++                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 block truncate" title={getOutcomeTerminology('solicitud_atendida', profile.professionalProfile).label}>
++                    {getOutcomeTerminology('solicitud_atendida', profile.professionalProfile).label}
++                  </span>
++                  <p className="text-xl font-black text-purple-950 mt-0.5">
++                    {outcomeStats.byType.solicitud_atendida}
++                  </p>
++                </div>
++                <div className="p-3 rounded-2xl bg-stone-100/70 border border-stone-200 text-left col-span-2 sm:col-span-2">
++                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 block truncate" title={getOutcomeTerminology('otro', profile.professionalProfile).label}>
++                    {getOutcomeTerminology('otro', profile.professionalProfile).label}
++                  </span>
++                  <p className="text-xl font-black text-stone-900 mt-0.5">
++                    {outcomeStats.byType.otro}
++                  </p>
++                </div>
++              </div>
+             </div>
+-            <div className="py-2.5 flex items-center justify-between">
+-              <span className="text-stone-600">Clics a Enlaces seleccionados</span>
+-              <span className="font-bold text-stone-900">{cardStats.linkClicks}</span>
++
++            {/* 4. SECTION: Actividad Registrada de la Tarjeta */}
++            <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm space-y-4">
++              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
++                <div>
++                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-700">
++                    Actividad Registrada de la Tarjeta
++                  </h2>
++                  <p className="text-[10px] text-stone-400">
++                    Métricas acumuladas registradas en el navegador
++                  </p>
++                </div>
++                <div>
++                  {activitySummary.source === 'synthetic' ? (
++                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
++                      <Sparkles className="w-3 h-3 text-amber-600" />
++                      <span>Demostración Sintética</span>
++                    </span>
++                  ) : activitySummary.source === 'local' ? (
++                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
++                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
++                      <span>Registrado en este dispositivo</span>
++                    </span>
++                  ) : (
++                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-600 border border-stone-300">
++                      <span>Sin datos registrados</span>
++                    </span>
++                  )}
++                </div>
++              </div>
++
++              <p className="text-[11px] text-stone-500 leading-relaxed">
++                Registro histórico acumulado local. No constituye analítica de servidor centralizada ni
++                identifica personas únicas.
++              </p>
++
++              {/* 4 Honest Metric Cards */}
++              <div className="grid grid-cols-2 gap-3">
++                {/* Card 1: Vistas */}
++                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 shadow-2xs">
++                  <div className="flex items-center justify-between text-stone-500 mb-1">
++                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
++                      Aperturas de Tarjeta
++                    </span>
++                    <Eye className="w-4 h-4 text-[#00685f]" />
++                  </div>
++                  <p className="text-2xl font-black text-stone-900">{activitySummary.views}</p>
++                  <p className="text-[10px] text-emerald-700 font-semibold mt-1">
++                    {activitySummary.qrScans} con origen QR
++                  </p>
++                  <p className="text-[9px] text-stone-400 mt-1 leading-tight">
++                    Aperturas registradas en navegador. No garantiza personas únicas ni lectura
++                    completa.
++                  </p>
++                </div>
++
++                {/* Card 2: vCards Guardadas */}
++                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 shadow-2xs">
++                  <div className="flex items-center justify-between text-stone-500 mb-1">
++                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
++                      Descargas de Contacto
++                    </span>
++                    <Download className="w-4 h-4 text-emerald-600" />
++                  </div>
++                  <p className="text-2xl font-black text-stone-900">{activitySummary.vcardDownloads}</p>
++                  <p className="text-[10px] text-stone-500 mt-1">Archivos .vcf generados</p>
++                  <p className="text-[9px] text-stone-400 mt-1 leading-tight">
++                    Descarga del archivo vCard. No demuestra que se haya guardado en la agenda
++                    telefónica.
++                  </p>
++                </div>
++
++                {/* Card 3: Clics a WhatsApp */}
++                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 shadow-2xs">
++                  <div className="flex items-center justify-between text-stone-500 mb-1">
++                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
++                      Intentos a WhatsApp
++                    </span>
++                    <MessageCircle className="w-4 h-4 text-teal-600" />
++                  </div>
++                  <p className="text-2xl font-black text-stone-900">{activitySummary.whatsappClicks}</p>
++                  <p className="text-[10px] text-stone-500 mt-1">Clics al enlace de chat</p>
++                  <p className="text-[9px] text-stone-400 mt-1 leading-tight">
++                    Clics dirigidos a WhatsApp. No demuestra mensajes enviados ni respuestas recibidas.
++                  </p>
++                </div>
++
++                {/* Card 4: Acciones por cada 100 vistas */}
++                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 shadow-2xs">
++                  <div className="flex items-center justify-between text-stone-500 mb-1">
++                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
++                      Acciones / 100 Vistas
++                    </span>
++                    <TrendingUp className="w-4 h-4 text-amber-600" />
++                  </div>
++                  <p className="text-2xl font-black text-stone-900">{activitySummary.actionsPer100Views}</p>
++                  <p className="text-[10px] text-amber-800 font-semibold mt-1">
++                    {activitySummary.directActionsCount} acciones directas
++                  </p>
++                  <p className="text-[9px] text-stone-400 mt-1 leading-tight">
++                    Relación de clics directos entre aperturas. Puede superar 100 si una persona hace
++                    varias acciones.
++                  </p>
++                </div>
++              </div>
++
++              {/* Detailed Breakdown */}
++              <div className="pt-2 border-t border-stone-100">
++                <h3 className="text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-2">
++                  Otras Interacciones Registradas
++                </h3>
++                <div className="divide-y divide-stone-100 text-xs">
++                  <div className="py-2 flex items-center justify-between">
++                    <span className="text-stone-600">Compartidas por enlace / WhatsApp</span>
++                    <span className="font-bold text-stone-900">{activitySummary.shares}</span>
++                  </div>
++                  <div className="py-2 flex items-center justify-between">
++                    <span className="text-stone-600">Clics a enlaces de recursos</span>
++                    <span className="font-bold text-stone-900">{activitySummary.linkClicks}</span>
++                  </div>
++                  <div className="py-2 flex items-center justify-between">
++                    <span className="text-stone-600">Última actividad registrada</span>
++                    <span className="font-mono text-[11px] text-stone-500">
++                      {activitySummary.lastActive
++                        ? new Date(activitySummary.lastActive).toLocaleDateString('es-MX', {
++                            day: 'numeric',
++                            month: 'short',
++                            year: 'numeric'
++                          })
++                        : 'Sin actividad registrada'}
++                    </span>
++                  </div>
++                </div>
++              </div>
+             </div>
+-            <div className="py-2.5 flex items-center justify-between">
+-              <span className="text-stone-600">Última actividad registrada</span>
+-              <span className="font-mono text-[11px] text-stone-500">
+-                {cardStats.lastActive ? new Date(cardStats.lastActive).toLocaleDateString() : 'Hoy'}
+-              </span>
++
++            {/* 5. Herramientas de Cierre & Difusión (Secundario al fondo) */}
++            <div className="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-4 text-white shadow-md">
++              <div className="flex items-center gap-2 mb-2">
++                <Sparkles className="w-4 h-4 text-teal-300" />
++                <h2 className="text-xs font-bold uppercase tracking-wider text-teal-200">
++                  Herramientas de Cierre & Difusión
++                </h2>
++              </div>
++              <p className="text-[11px] text-stone-300 mb-3 leading-relaxed">
++                Genera recursos ejecutivos de alta calidad para compartir tu contacto sin fricción en
++                eventos o en cada correo que envíes.
++              </p>
++              <div className="grid grid-cols-2 gap-2">
++                <button
++                  onClick={() => setIsWallpaperOpen(true)}
++                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
++                >
++                  <Smartphone className="w-4 h-4 text-teal-300" />
++                  <span>Fondo con QR</span>
++                </button>
++                <button
++                  onClick={() => setIsSignatureOpen(true)}
++                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
++                >
++                  <Mail className="w-4 h-4 text-teal-300" />
++                  <span>Firma de Correo</span>
++                </button>
++              </div>
+             </div>
+-          </div>
+-        </div>
+-      </>
+-    )}
++          </>
++        )}
+ 
+         {/* Support & Updates Banner */}
+         <div className="p-4 rounded-2xl bg-stone-900 text-white text-center space-y-2">
+@@ -572,7 +1161,7 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+         </div>
+       </div>
+ 
+-      {/* Modals for Wallpaper & Signature */}
++      {/* Modals for Wallpaper, Signature & Lead Detail */}
+       <WallpaperModal
+         isOpen={isWallpaperOpen}
+         onClose={() => setIsWallpaperOpen(false)}
+@@ -585,6 +1174,15 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
+         profile={profile}
+         onShowToast={showToast}
+       />
++      <LeadDetailModal
++        isOpen={isDetailModalOpen}
++        onClose={() => setIsDetailModalOpen(false)}
++        lead={selectedLeadForDetail}
++        profile={profile}
++        onUpdateLead={handleUpdateLead}
++        onDeleteLead={handleDeleteLead}
++        onShowToast={showToast}
++      />
+     </div>
+   );
+ };
+diff --git a/src/services/leadService.ts b/src/services/leadService.ts
+index 9354733..7f89ff4 100644
+--- a/src/services/leadService.ts
++++ b/src/services/leadService.ts
+@@ -1,27 +1,46 @@
+-import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
++import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+ import { db } from '../firebase/config';
+-import { CapturedLead } from '../types/analytics';
++import { CapturedLead, LeadOutcome } from '../types/analytics';
++import { captureLeadOnServer } from '../server/leadApi';
++import { getLocalTodayDateString } from '../utils/crmTerminology';
+ 
+ const COLLECTION_NAME = 'leads';
+ 
+-function getLocalLeads(publicId: string): CapturedLead[] {
++export function getLocalLeadsEntry(publicId: string): { exists: boolean; leads: CapturedLead[] } {
+   try {
+     const raw = localStorage.getItem(`tarjetas_leads_${publicId.toLowerCase()}`);
+-    return raw ? JSON.parse(raw) : [];
++    if (raw === null) {
++      return { exists: false, leads: [] };
++    }
++    return { exists: true, leads: JSON.parse(raw) };
+   } catch {
+-    return [];
++    return { exists: false, leads: [] };
+   }
+ }
+ 
+-function saveLocalLeads(publicId: string, leads: CapturedLead[]): void {
++function getLocalLeads(publicId: string): CapturedLead[] {
++  return getLocalLeadsEntry(publicId).leads;
++}
++
++function saveLocalLeads(publicId: string, leads: CapturedLead[]): boolean {
+   try {
+     localStorage.setItem(`tarjetas_leads_${publicId.toLowerCase()}`, JSON.stringify(leads));
+-  } catch {}
++    return true;
++  } catch (err) {
++    console.warn('[LeadService] LocalStorage setItem failed:', err);
++    return false;
++  }
+ }
+ 
++const hoursAgo = (h: number) => new Date(Date.now() - 1000 * 60 * 60 * h).toISOString();
++const daysOffset = (days: number) => {
++  const d = new Date();
++  d.setDate(d.getDate() + days);
++  return getLocalTodayDateString(d);
++};
++
+ /**
+- * High-value mock contacts specifically tailored for Sara Zea (SAZEDI Arquitectura)
+- * to demonstrate the Mini-CRM in action across all pipeline stages.
++ * High-value mock contacts for Sara Zea (SAZEDI)
+  */
+ export const SARA_MOCK_LEADS: CapturedLead[] = [
+   {
+@@ -32,202 +51,1503 @@ export const SARA_MOCK_LEADS: CapturedLead[] = [
+     email: 'roberto.morales@desarrollosbajio.mx',
+     company: 'Desarrollos Residenciales del Bajío',
+     role: 'Director de Proyectos',
+-    message: 'Hola Sara, me encantó tu enfoque de arquitectura bioclimática en la sesión de networking. Tenemos un desarrollo de 12 residencias premium en Zibatá y queremos integrar tu consultoría para optimización solar y acabados sustentables.',
+-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
++    message:
++      'Hola Sara, me encantó tu enfoque en la sesión de networking. Tenemos un desarrollo de 12 residencias premium en Zibatá y queremos integrar tu consultoría estratégica.',
++    timestamp: hoursAgo(2),
+     status: 'nuevo',
+-    notes: 'Interesado en propuesta de diseño interior bioclimático y confort térmico para casas muestra.'
++    notes: 'Interesado en propuesta comercial y alianza para primera etapa en Zibatá.',
++    nextAction: 'Preparar propuesta comercial de consultoría para Zibatá',
++    nextActionDate: daysOffset(0),
++    nextActionTime: '11:00'
+   },
+   {
+     id: 'lead_sara_02',
+     publicId: 'sara-sazedi',
+-    name: 'Carlos Peña Treviño',
+-    phone: '+52 442 420 8901',
+-    email: 'cpena.inversiones@gmail.com',
+-    company: 'Inversiones Patrimoniales Campanario',
+-    role: 'Inversionista Residencial',
+-    message: 'Construiré mi residencia en El Campanario (850 m2) y busco un despacho especializado que domine diseño pasivo, iluminación cenital y materiales naturales.',
+-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+-    status: 'nuevo',
+-    notes: 'Prospecto de muy alto valor. Requiere presentación privada de portafolio residencial de lujo.'
+-  },
+-  {
+-    id: 'lead_sara_03',
+-    publicId: 'sara-sazedi',
+     name: 'Ing. Marcela Vega Salgado',
+     phone: '+52 442 516 7890',
+     email: 'mvega@haciendasanjose.com.mx',
+     company: 'Grupo Hotelero Hacienda San José',
+-    role: 'Gerente de Sustentabilidad & Compras',
+-    message: 'Vimos tu tarjeta digital en el evento de sustentabilidad de Canaco. Queremos remodelar las suites ejecutivas con iluminación natural y confort térmico.',
+-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
++    role: 'Gerente de Operaciones & Alianzas',
++    message:
++      'Vimos tu tarjeta digital en el evento empresarial de Canaco. Queremos estructurar convenios corporativos para nuestras suites ejecutivas.',
++    timestamp: hoursAgo(20),
+     status: 'contactado',
+-    notes: 'Le envié por WhatsApp el enlace al video de estudio de caso. Muy receptiva, acordamos enviar propuesta el viernes.'
++    notes: 'Le envié por WhatsApp el enlace al caso de estudio. Acordamos enviar propuesta el viernes.',
++    nextAction: 'Enviar propuesta ejecutiva por correo electrónico',
++    nextActionDate: daysOffset(-2),
++    nextActionTime: '17:00'
+   },
+   {
+-    id: 'lead_sara_04',
++    id: 'lead_sara_03',
+     publicId: 'sara-sazedi',
+     name: 'Lic. Fernando Garza Ruiz',
+     phone: '+52 442 198 2345',
+     email: 'fgarza@nauticaqro.com',
+     company: 'Corporativo Plaza Náutica Juriquilla',
+     role: 'Socio Director',
+-    message: 'Buscamos rediseñar 450m2 de áreas comunes y terraza corporativa. Urge visita a sitio la próxima semana.',
+-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
++    message:
++      'Buscamos reestructurar nuestra estrategia de expansión B2B en el Bajío. Urge sesión de diagnóstico la próxima semana.',
++    timestamp: hoursAgo(54),
+     status: 'reunion',
+-    notes: 'Reunión agendada para el próximo martes a las 11:00 AM para levantamiento arquitectónico en sitio.'
++    notes: 'Reunión agendada para el martes a las 11:00 AM en oficinas de Juriquilla.',
++    nextAction: 'Sesión diagnóstica presencial en Juriquilla',
++    nextActionDate: daysOffset(3),
++    nextActionTime: '11:00'
+   },
+   {
+-    id: 'lead_sara_05',
++    id: 'lead_sara_04',
+     publicId: 'sara-sazedi',
+     name: 'Dra. Valeria Gómez Conde',
+     phone: '+52 442 670 1122',
+     email: 'valeria.gomez@clinicaalttus.mx',
+     company: 'Clínica Dermatológica Alttus Juriquilla',
+     role: 'Directora Médica & Propietaria',
+-    message: 'Queremos un diseño interior que transmita serenidad y use materiales locales libres de VOCs para nuestros nuevos consultorios.',
+-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 144).toISOString(),
++    message:
++      'Queremos acompañamiento directivo 1 a 1 para abrir nuestra segunda sucursal en Centro Sur.',
++    timestamp: hoursAgo(120),
+     status: 'cerrado',
+-    notes: 'Contrato firmado de proyecto ejecutivo de interiorismo bioclimático. Anticipo del 50% recibido en cuenta bancaria.'
++    notes: 'Contrato trimestral firmado. Anticipo del 50% recibido y kick-off completado.',
++    nextAction: 'Kick-off de acompañamiento directivo',
++    nextActionDate: daysOffset(-6),
++    nextActionCompleted: true,
++    nextActionCompletedAt: hoursAgo(96)
++  },
++  {
++    id: 'lead_sara_05',
++    publicId: 'sara-sazedi',
++    name: 'Mtro. Alejandro Villaseñor',
++    phone: '+52 442 814 3309',
++    email: 'avillasenor@fondobajio.mx',
++    company: 'Fondo de Inversión Capital Bajío',
++    role: 'Director de Portafolio',
++    message:
++      'Hola Sara, nos interesa que facilites el consejo consultivo trimestral de 3 empresas de nuestro portafolio en Querétaro.',
++    timestamp: hoursAgo(144),
++    status: 'reunion',
++    notes: 'Presentación de metodología programada para el jueves a las 4:00 PM.'
+   }
+ ];
+ 
+ /**
+- * Seeds mock leads for a profile (saved locally and to Firestore)
++ * 5 tailored sets of CRM leads for each of the 7 Demo Archetype Profiles
++ */
++export const DEMO_PROFILES_MOCK_LEADS: Record<string, CapturedLead[]> = {
++  'demo-clara-navarro': [
++    {
++      id: 'lead_clara_01',
++      publicId: 'demo-clara-navarro',
++      name: 'Ing. Ricardo Montemayor',
++      phone: '+52 442 310 4481',
++      email: 'rmontemayor@logisticaqro.mx',
++      company: 'Montemayor Logística & Distribución',
++      role: 'Director General',
++      message:
++        'Hola Clara. Crecimos de 14 a 32 personas este año y todas las decisiones operativas siguen pasando por mi escritorio. Necesitamos ordenar responsabilidades.',
++      timestamp: hoursAgo(3),
++      status: 'nuevo',
++      notes: 'Dolor claro de cuello de botella en dirección. Enviar muestra de mapa de responsabilidades.',
++      nextAction: 'Enviar muestra de mapa de responsabilidades y agendar llamada diagnóstica',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '12:00'
++    },
++    {
++      id: 'lead_clara_02',
++      publicId: 'demo-clara-navarro',
++      name: 'Lic. Mariana Solís',
++      phone: '+52 442 489 2210',
++      email: 'msolis@grupocima.mx',
++      company: 'Grupo Comercial Cima del Bajío',
++      role: 'Gerente de Capital Humano',
++      message:
++        'Hola Clara, vi tu tarjeta en el desayuno de COPARMEX. Queremos estructurar la incorporación de 6 nuevos coordinadores de sucursal el próximo mes.',
++      timestamp: hoursAgo(18),
++      status: 'contactado',
++      notes: 'Se envió guía de ruta de incorporación de 30-60-90 días. Llamada de alcance el jueves.',
++      nextAction: 'Llamada de alcance para acordar ruta de incorporación',
++      nextActionDate: daysOffset(-2),
++      nextActionTime: '16:30'
++    },
++    {
++      id: 'lead_clara_03',
++      publicId: 'demo-clara-navarro',
++      name: 'Arq. Esteban Villalobos',
++      phone: '+52 442 192 8834',
++      email: 'esteban@villalobosarquitectos.com',
++      company: 'Villalobos Estudio & Construcción',
++      role: 'Socio Fundador',
++      message:
++        'Nuestras reuniones semanales de obra duran 2 horas y aun así se pierden compromisos entre residentes y compras. Buscamos tu taller de acuerdos.',
++      timestamp: hoursAgo(48),
++      status: 'reunion',
++      notes: 'Sesión diagnóstica agendada este miércoles a las 10:00 AM en su despacho de Álamos.',
++      nextAction: 'Sesión diagnóstica presencial de acuerdos operativos',
++      nextActionDate: daysOffset(3),
++      nextActionTime: '10:00'
++    },
++    {
++      id: 'lead_clara_04',
++      publicId: 'demo-clara-navarro',
++      name: 'C.P. Sofía Elizondo',
++      phone: '+52 442 601 7743',
++      email: 'selizondo@elizondocontadores.mx',
++      company: 'Elizondo & Asociados Despacho Fiscal',
++      role: 'Socia Directora',
++      message:
++        'Queremos formalizar la matriz de roles entre gerentes fiscales y auxiliares para liberar tiempo de los socios.',
++      timestamp: hoursAgo(110),
++      status: 'cerrado',
++      notes: 'Proyecto de 8 semanas aprobado ($68,000 MXN). Primera sesión con líderes realizada con éxito.',
++      nextAction: 'Formalización de matriz y primera sesión con líderes',
++      nextActionDate: daysOffset(-5),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(80),
++      outcome: {
++        type: 'venta_confirmada',
++        label: 'Taller de Acuerdos Operativos y Roles',
++        registeredAt: daysOffset(-2),
++        note: 'Anticipo del 50% cubierto para programa directivo de 8 semanas.'
++      }
++    },
++    {
++      id: 'lead_clara_05',
++      publicId: 'demo-clara-navarro',
++      name: 'Ing. Daniel Castrejón',
++      phone: '+52 442 745 1920',
++      email: 'dcastrejon@agroindustrialesqro.mx',
++      company: 'Agroindustriales del Valle QRO',
++      role: 'Director de Operaciones',
++      message:
++        'Hola Clara, abriremos un segundo turno en planta y necesitamos definir claramente las entregas de turno y responsabilidades de supervisión.',
++      timestamp: hoursAgo(136),
++      status: 'contactado',
++      notes: 'Interesado en programa integral de roles y acuerdos operativos para 12 supervisores.'
++    }
++  ],
++
++  'demo-diego-salas': [
++    {
++      id: 'lead_diego_01',
++      publicId: 'demo-diego-salas',
++      name: 'Dr. Alejandro Cordero',
++      phone: '+52 442 512 9087',
++      email: 'acordero@cardioqro.mx',
++      company: 'Instituto Cardiopulmonar del Bajío',
++      role: 'Médico Especialista',
++      message:
++        'Hola Diego. Mi familia y yo nos mudamos de CDMX a Querétaro en 60 días. Buscamos casa en Juriquilla o El Campanario con presupuesto de $7.5M a $9M MXN.',
++      timestamp: hoursAgo(2),
++      status: 'nuevo',
++      notes: 'Comprador con crédito pre-aprobado y recursos propios. Filtrar 4 opciones con jardín y seguridad.',
++      nextAction: 'Filtrar y enviar 4 opciones en Juriquilla con jardín',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '10:30'
++    },
++    {
++      id: 'lead_diego_02',
++      publicId: 'demo-diego-salas',
++      name: 'Lic. Paulina Castañeda',
++      phone: '+52 442 334 1198',
++      email: 'pcastaneda@kafenordico.mx',
++      company: 'Kafé Nórdico Tostadores',
++      role: 'Fundadora',
++      message:
++        'Buscamos un local comercial de 90 a 120 m² en zona Álamos o Carretas con uso de suelo comercial y estacionamiento para nuestra segunda cafetería.',
++      timestamp: hoursAgo(22),
++      status: 'contactado',
++      notes: 'Se compartieron 3 fichas técnicas verificadas en Álamos 3ra Sección. Revisando factibilidad de terraza.',
++      nextAction: 'Enviar fichas técnicas de Álamos y verificar terraza',
++      nextActionDate: daysOffset(-1),
++      nextActionTime: '15:00'
++    },
++    {
++      id: 'lead_diego_03',
++      publicId: 'demo-diego-salas',
++      name: 'Ing. Héctor Becerra',
++      phone: '+52 442 781 3340',
++      email: 'hbecerra@PrecisionAero.mx',
++      company: 'Precision Aero Components',
++      role: 'Director de Operaciones',
++      message:
++        'Necesitamos rentar 2 residencias amuebladas en Zibatá para directivos expatriados que llegan el próximo mes por contrato de 2 años.',
++      timestamp: hoursAgo(50),
++      status: 'reunion',
++      notes: 'Recorrido programado para el viernes a las 9:30 AM en 3 propiedades pre-seleccionadas.',
++      nextAction: 'Recorrido en Zibatá con expatriados',
++      nextActionDate: daysOffset(2),
++      nextActionTime: '09:30'
++    },
++    {
++      id: 'lead_diego_04',
++      publicId: 'demo-diego-salas',
++      name: 'Sra. Carmen Valladares',
++      phone: '+52 442 215 6609',
++      email: 'carmen.valladares@prodigy.net.mx',
++      company: 'Patrimonio Familiar Valladares',
++      role: 'Propietaria',
++      message:
++        'Hola Diego, quiero poner en venta mi propiedad comercial en Av. Constituyentes con expediente jurídico en regla.',
++      timestamp: hoursAgo(96),
++      status: 'cerrado',
++      notes: 'Contrato de corretaje exclusivo firmado (Valor comercial: $6,400,000 MXN). Sesión fotográfica lista.',
++      nextAction: 'Sesión fotográfica de propiedad comercial',
++      nextActionDate: daysOffset(-4),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(72)
++    },
++    {
++      id: 'lead_diego_05',
++      publicId: 'demo-diego-salas',
++      name: 'Arq. Santiago Lomelí',
++      phone: '+52 442 639 4012',
++      email: 'slomeli@lomelidesarrollos.mx',
++      company: 'Lomelí Desarrollos Boutique',
++      role: 'Socio Comercial',
++      message:
++        'Diego, tenemos 4 residencias en preventa en Altozano y queremos que lideres la comercialización exclusiva con tus inversionistas.',
++      timestamp: hoursAgo(132),
++      status: 'reunion',
++      notes: 'Revisión de carpeta técnica y comisiones este jueves a las 12:30 PM en obra.'
++    }
++  ],
++
++  'demo-renata-vidal': [
++    {
++      id: 'lead_renata_01',
++      publicId: 'demo-renata-vidal',
++      name: 'Lic. Daniela Orozco',
++      phone: '+52 442 409 8821',
++      email: 'dorozco@bostontech.mx',
++      company: 'Boston Tech Hub Querétaro',
++      role: 'People & Experience Lead',
++      message:
++        'Hola Renata. Tendremos un taller de planeación anual de 2 días para 28 líderes en Juriquilla y queremos servicio de coffee break continuo y almuerzo ligero.',
++      timestamp: hoursAgo(4),
++      status: 'nuevo',
++      notes: '28 asistentes (4 vegetarianos, 2 sin gluten). Cotizar formato Jornada Completa Energizante.',
++      nextAction: 'Cotizar formato Jornada Completa Energizante (28 pax)',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '13:00'
++    },
++    {
++      id: 'lead_renata_02',
++      publicId: 'demo-renata-vidal',
++      name: 'Mtro. Rodrigo Santillán',
++      phone: '+52 442 618 4502',
++      email: 'rsantillan@consejoempresarialqro.org',
++      company: 'Consejo Empresarial del Bajío',
++      role: 'Coordinador de Consejos Directivos',
++      message:
++        'Necesitamos desayuno ejecutivo emplatado para sesión privada de 14 consejeros el próximo jueves a las 8:00 AM en Centro Sur.',
++      timestamp: hoursAgo(26),
++      status: 'contactado',
++      notes: 'Se envió propuesta con 2 opciones de menú ejecutivo y montaje silencioso.',
++      nextAction: 'Confirmar selección entre las 2 opciones de menú',
++      nextActionDate: daysOffset(-3),
++      nextActionTime: '18:00'
++    },
++    {
++      id: 'lead_renata_03',
++      publicId: 'demo-renata-vidal',
++      name: 'Arq. Camila Fuentes',
++      phone: '+52 442 890 1234',
++      email: 'camila@fuentesinteriorismo.mx',
++      company: 'Fuentes Estudio de Interiorismo',
++      role: 'Directora Creativa',
++      message:
++        'Inauguramos nuestro nuevo showroom en Álamos para 45 invitados y queremos una mesa de quesos artesanales y bocadillos de autor.',
++      timestamp: hoursAgo(60),
++      status: 'reunion',
++      notes: 'Visita al showroom agendada el miércoles 5:00 PM para definir dimensiones de mesa y montaje.',
++      nextAction: 'Visita de locación al showroom para medidas de montaje',
++      nextActionDate: daysOffset(4),
++      nextActionTime: '17:00'
++    },
++    {
++      id: 'lead_renata_04',
++      publicId: 'demo-renata-vidal',
++      name: 'Ing. Gustavo Pineda',
++      phone: '+52 442 311 7892',
++      email: 'gpineda@europlast.mx',
++      company: 'EuroPlast Automotive Querétaro',
++      role: 'Gerente de Planta',
++      message:
++        'Queremos contratar los desayunos mensuales de resultados para nuestros 22 jefes de área durante todo el trimestre.',
++      timestamp: hoursAgo(130),
++      status: 'cerrado',
++      notes: 'Convenio trimestral cerrado ($42,000 MXN). Primer servicio programado para el día 1 de mes.',
++      nextAction: 'Montaje de primer desayuno de resultados',
++      nextActionDate: daysOffset(-5),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(90)
++    },
++    {
++      id: 'lead_renata_05',
++      publicId: 'demo-renata-vidal',
++      name: 'Lic. Natalia Urquiza',
++      phone: '+52 442 918 5520',
++      email: 'nurquiza@finanzaspacifico.mx',
++      company: 'Banca Patrimonial del Pacífico',
++      role: 'Subdirectora de Relaciones VIP',
++      message:
++        'Hola Renata, organizaremos una cata y cena maridaje privada para 20 clientes patrimoniales el día 24 de este mes.',
++      timestamp: hoursAgo(148),
++      status: 'contactado',
++      notes: 'Enviada propuesta de menú degustación de 4 tiempos. Pendiente confirmar selección de vinos.'
++    }
++  ],
++
++  'demo-jorge-herrera': [
++    {
++      id: 'lead_jorge_01',
++      publicId: 'demo-jorge-herrera',
++      name: 'Ing. Víctor Manuel Lozano',
++      phone: '+52 442 590 3312',
++      email: 'vlozano@metalurgicabajio.com',
++      company: 'Metalúrgica Industrial del Bajío',
++      role: 'Gerente de Mantenimiento',
++      message:
++        'Hola Jorge. Tenemos vibración fuera de rango en 2 transportadores principales de la línea 3 en Parque Industrial Benito Juárez. Requerimos diagnóstico y ajuste.',
++      timestamp: hoursAgo(1),
++      status: 'nuevo',
++      notes: 'Urgencia media-alta. Tienen ventana de paro programado este sábado de 7:00 AM a 3:00 PM.',
++      nextAction: 'Confirmar cuadrilla para ventana de paro del sábado',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '08:30'
++    },
++    {
++      id: 'lead_jorge_02',
++      publicId: 'demo-jorge-herrera',
++      name: 'Ing. Claudia Rentería',
++      phone: '+52 442 278 6543',
++      email: 'crenteria@valeo-tier1.mx',
++      company: 'Sistemas Automotrices El Marqués',
++      role: 'Líder de Ingeniería de Planta',
++      message:
++        'Buscamos fabricar 18 dispositivos de sujeción (fixtures) en acero inoxidable con entrega en 3 semanas. Puedo compartir planos STEP/PDF.',
++      timestamp: hoursAgo(19),
++      status: 'contactado',
++      notes: 'Planos recibidos. Ingeniería está costeando materiales y horas de maquinado CNC.',
++      nextAction: 'Enviar costeo de materiales y maquinado CNC de fixtures',
++      nextActionDate: daysOffset(-2),
++      nextActionTime: '14:00'
++    },
++    {
++      id: 'lead_jorge_03',
++      publicId: 'demo-jorge-herrera',
++      name: 'Lic. Marco Antonio Zepeda',
++      phone: '+52 442 812 9904',
++      email: 'mzepeda@alimentosdelcentro.mx',
++      company: 'Procesadora de Alimentos del Centro',
++      role: 'Jefe de Compras Técnicas',
++      message:
++        'Queremos evaluar a Nexo Operativo como proveedor dado de alta con DC-3 y REPSE para reubicación de una línea de envasado.',
++      timestamp: hoursAgo(52),
++      status: 'reunion',
++      notes: 'Levantamiento técnico en planta agendado mañana jueves a las 10:30 AM con equipo de seguridad.',
++      nextAction: 'Levantamiento técnico en planta con equipo de seguridad',
++      nextActionDate: daysOffset(1),
++      nextActionTime: '10:30'
++    },
++    {
++      id: 'lead_jorge_04',
++      publicId: 'demo-jorge-herrera',
++      name: 'Ing. Raúl Domínguez',
++      phone: '+52 442 445 1029',
++      email: 'rdominguez@aerotechqro.com',
++      company: 'AeroTech Machining Querétaro',
++      role: 'Director de Operaciones',
++      message:
++        'Requerimos póliza semestral de mantenimiento mecánico preventivo para 6 celdas de manufactura.',
++      timestamp: hoursAgo(140),
++      status: 'cerrado',
++      notes: 'Orden de compra OC-8841 liberada por $185,000 MXN. Calendario de intervenciones firmado.',
++      nextAction: 'Entrega de cronograma de mantenimiento firmado',
++      nextActionDate: daysOffset(-7),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(120)
++    },
++    {
++      id: 'lead_jorge_05',
++      publicId: 'demo-jorge-herrera',
++      name: 'Ing. Óscar Valenzuela',
++      phone: '+52 442 304 9981',
++      email: 'ovalenzuela@logisticafria.mx',
++      company: 'Frigoríficos & Logística del Bajío',
++      role: 'Jefe de Infraestructura',
++      message:
++        'Jorge, necesitamos adecuar 4 rampas niveladoras electrohidráulicas y protecciones estructurales en andén de carga.',
++      timestamp: hoursAgo(162),
++      status: 'contactado',
++      notes: 'Se envió presupuesto preliminar con cuadrilla certificada en soldadura y trabajo en alturas.'
++    }
++  ],
++
++  'demo-adriana-torres': [
++    {
++      id: 'lead_adriana_01',
++      publicId: 'demo-adriana-torres',
++      name: 'Ing. Enrique Valdés',
++      phone: '+52 442 367 8910',
++      email: 'evaldes@claq-automotriz.org',
++      company: 'Clúster Automotriz de Querétaro',
++      role: 'Coordinador de Comité de Operaciones',
++      message:
++        'Estimada Adriana, queremos invitarte como ponente principal a la mesa de Excelencia Operativa y Desarrollo de Supervisores el próximo mes.',
++      timestamp: hoursAgo(3),
++      status: 'nuevo',
++      notes: 'Excelente foro con 40 directores de planta del Bajío. Confirmar disponibilidad de agenda.',
++      nextAction: 'Confirmar disponibilidad de agenda para panel del clúster',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '09:00'
++    },
++    {
++      id: 'lead_adriana_02',
++      publicId: 'demo-adriana-torres',
++      name: 'Dr. Samuel Ibarra',
++      phone: '+52 442 701 2389',
++      email: 'sibarra@upq-ingenieria.edu.mx',
++      company: 'Universidad Politécnica Industrial',
++      role: 'Director de Vinculación Académica',
++      message:
++        'Hola Adriana, buscamos alinear nuestro programa de educación dual en manufactura esbelta con los estándares de Horizonte Manufactura.',
++      timestamp: hoursAgo(24),
++      status: 'contactado',
++      notes: 'Se envió perfil de competencias técnicas para practicantes de 8vo cuatrimestre.',
++      nextAction: 'Enviar perfil de competencias técnicas para practicantes',
++      nextActionDate: daysOffset(-2),
++      nextActionTime: '16:00'
++    },
++    {
++      id: 'lead_adriana_03',
++      publicId: 'demo-adriana-torres',
++      name: 'Ing. Lorena Téllez',
++      phone: '+52 442 554 6712',
++      email: 'ltellez@precisionstampings.mx',
++      company: 'Precision Stampings Bajío',
++      role: 'Gerente General',
++      message:
++        'Somos proveedor Tier-2 certificado IATF 16949 y queremos presentar nuestras capacidades de estampado local para su programa de localización de proveeduría.',
++      timestamp: hoursAgo(64),
++      status: 'reunion',
++      notes: 'Reunión de evaluación con Gerencia de Calidad y Compras agendada para el martes 12:00 PM.',
++      nextAction: 'Reunión de evaluación técnica con Gerencia de Calidad',
++      nextActionDate: daysOffset(2),
++      nextActionTime: '12:00'
++    },
++    {
++      id: 'lead_adriana_04',
++      publicId: 'demo-adriana-torres',
++      name: 'Mtro. Patricio Cuevas',
++      phone: '+52 442 901 4455',
++      email: 'pcuevas@institutolean.mx',
++      company: 'Instituto Mexicano de Manufactura Esbelta',
++      role: 'Director Regional',
++      message:
++        'Propuesta de alianza interinstitucional para certificar a 25 líderes de celda y supervisores de planta.',
++      timestamp: hoursAgo(150),
++      status: 'cerrado',
++      notes: 'Convenio de colaboración firmado. Primera generación inicia capacitación el próximo lunes.',
++      nextAction: 'Kick-off de primera generación de líderes certificados',
++      nextActionDate: daysOffset(-5),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(85)
++    },
++    {
++      id: 'lead_adriana_05',
++      publicId: 'demo-adriana-torres',
++      name: 'Ing.Berenice Alcalá',
++      phone: '+52 442 677 2014',
++      email: 'balcala@aeroespacialbajio.mx',
++      company: 'Consorcio Aeroespacial del Centro',
++      role: 'Directora de Calidad Operativa',
++      message:
++        'Adriana, nos encantaría realizar un benchmarking cruzado de pisos de producción y tableros SQDC entre nuestras plantas.',
++      timestamp: hoursAgo(168),
++      status: 'reunion',
++      notes: 'Recorrido recíproco de planta confirmado para el próximo viernes a las 8:30 AM.'
++    }
++  ],
++
++  'demo-lucia-cardenas': [
++    {
++      id: 'lead_lucia_01',
++      publicId: 'demo-lucia-cardenas',
++      name: 'Lic. Gabriela Mondragón',
++      phone: '+52 442 398 1120',
++      email: 'gmondragon@gmail.com',
++      company: 'Paciente en Consultorio Juriquilla',
++      role: 'Cita de Valoración General',
++      message:
++        'Hola Dra. Lucía, vi su tarjeta digital por recomendación de una vecina. Quisiera agendar una cita de valoración en su consultorio esta semana por la tarde.',
++      timestamp: hoursAgo(2),
++      status: 'nuevo',
++      notes: 'Enviar opciones de horarios disponibles en consultorio y confirmar cita para el jueves a las 5:00 PM.',
++      nextAction: 'Confirmar horario disponible y enviar ubicación del consultorio',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '17:00'
++    },
++    {
++      id: 'lead_lucia_02',
++      publicId: 'demo-lucia-cardenas',
++      name: 'Ing. Carlos Alberto Rivas',
++      phone: '+52 442 612 7780',
++      email: 'carlos.rivas@outlook.com',
++      company: 'Paciente Frecuente',
++      role: 'Seguimiento de Consulta',
++      message:
++        'Hola Doctora, le escribo para confirmar si cuenta con espacio disponible el viernes para consulta presencial en el consultorio.',
++      timestamp: hoursAgo(21),
++      status: 'contactado',
++      notes: 'Recepción confirmó disponibilidad en agenda de consultorio. Cita tentativa para el viernes 11:00 AM.',
++      nextAction: 'Confirmar asistencia a cita en agenda del consultorio',
++      nextActionDate: daysOffset(-1),
++      nextActionTime: '11:00'
++    },
++    {
++      id: 'lead_lucia_03',
++      publicId: 'demo-lucia-cardenas',
++      name: 'Dr. Mauricio Salgado',
++      phone: '+52 442 450 9931',
++      email: 'msalgado@endocrinologiaqro.mx',
++      company: 'Centro de Especialidades Médicas QRO',
++      role: 'Médico Especialista',
++      message:
++        'Estimada Dra. Cárdenas, me gustaría coordinar canalización administrativa recíproca de pacientes para atención en consultorios de la zona.',
++      timestamp: hoursAgo(70),
++      status: 'reunion',
++      notes: 'Llamada de coordinación administrativa agendada para el miércoles a la 1:30 PM.',
++      nextAction: 'Llamada de coordinación de interconsulta médica',
++      nextActionDate: daysOffset(3),
++      nextActionTime: '13:30'
++    },
++    {
++      id: 'lead_lucia_04',
++      publicId: 'demo-lucia-cardenas',
++      name: 'Lic. Regina Alcántara',
++      phone: '+52 442 823 4019',
++      email: 'ralcantara@colegioverdevalle.edu.mx',
++      company: 'Colegio Verde Valle Querétaro',
++      role: 'Coordinadora Administrativa',
++      message:
++        'Requerimos programar citas de atención y valoración en consultorio para el personal administrativo de nuestra sede.',
++      timestamp: hoursAgo(125),
++      status: 'cerrado',
++      notes: 'Jornada de citas en consultorio completada conforme al calendario acordado.',
++      nextAction: 'Confirmar registro de citas y cierre de fechas acordadas',
++      nextActionDate: daysOffset(-6),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(100),
++      outcome: {
++        type: 'cita_confirmada',
++        label: 'Cita de valoración en consultorio agendada',
++        registeredAt: daysOffset(-3),
++        note: 'Cita acordada y aceptada en agenda de consultorio para valoración de salud ocupacional.'
++      }
++    },
++    {
++      id: 'lead_lucia_05',
++      publicId: 'demo-lucia-cardenas',
++      name: 'Mtra. Claudia Peñaloza',
++      phone: '+52 442 508 3917',
++      email: 'claudia.penaloza@nutricionclinicaqro.mx',
++      company: 'Clínica de Nutrición',
++      role: 'Nutrióloga',
++      message:
++        'Hola Dra. Lucía, me encantaría coordinar horarios de atención conjunta para canalización de citas entre consultorios.',
++      timestamp: hoursAgo(152),
++      status: 'contactado',
++      notes: 'Se compartieron vías de contacto y horarios de recepción para coordinación.'
++    }
++  ],
++
++  'demo-gabriela-leon': [
++    {
++      id: 'lead_gabriela_01',
++      publicId: 'demo-gabriela-leon',
++      name: 'Mtra. Elena Beristain',
++      phone: '+52 442 341 8876',
++      email: 'eberistain@fundacionimpulso.org',
++      company: 'Fundación Impulso Comunitario QRO',
++      role: 'Directora de Programas Sociales',
++      message:
++        'Hola Gabriela. Queremos presentar una iniciativa conjunta de capacitación en habilidades digitales para 120 jóvenes de municipios del semidesierto.',
++      timestamp: hoursAgo(3),
++      status: 'nuevo',
++      notes: 'Propuesta muy bien estructurada con población objetivo y contrapartida definidas.',
++      nextAction: 'Revisar propuesta técnica de capacitación para jóvenes',
++      nextActionDate: daysOffset(0),
++      nextActionTime: '10:00'
++    },
++    {
++      id: 'lead_gabriela_02',
++      publicId: 'demo-gabriela-leon',
++      name: 'Ing. Javier Solórzano',
++      phone: '+52 442 509 3321',
++      email: 'jsolorzano@canacintraqro.org.mx',
++      company: 'Comisión de Talento Pyme • Cámara Industrial',
++      role: 'Vicepresidente de Vinculación',
++      message:
++        'Estimada Mtra. Gabriela, buscamos articular un diplomado técnico para supervisores de pymes manufactureras con aval del Centro Regional.',
++      timestamp: hoursAgo(25),
++      status: 'contactado',
++      notes: 'Se envió formato orientador de iniciativas y lineamientos de revisión académica.',
++      nextAction: 'Enviar lineamientos de revisión académica para diplomado',
++      nextActionDate: daysOffset(-2),
++      nextActionTime: '15:30'
++    },
++    {
++      id: 'lead_gabriela_03',
++      publicId: 'demo-gabriela-leon',
++      name: 'Dra. Patricia Mondragón',
++      phone: '+52 442 776 5410',
++      email: 'pmondragon@ciateq-innovacion.mx',
++      company: 'Centro Público de Investigación Aplicada',
++      role: 'Coordinadora de Transferencia de Conocimiento',
++      message:
++        'Queremos instalar una mesa interinstitucional para divulgación tecnológica y formación continua en sustentabilidad hídrica.',
++      timestamp: hoursAgo(68),
++      status: 'reunion',
++      notes: 'Mesa de trabajo programada el jueves a las 11:00 AM con Dirección Académica y Jurídico.',
++      nextAction: 'Mesa de trabajo interinstitucional con Dirección Académica',
++      nextActionDate: daysOffset(2),
++      nextActionTime: '11:00'
++    },
++    {
++      id: 'lead_gabriela_04',
++      publicId: 'demo-gabriela-leon',
++      name: 'Lic. Humberto Castañón',
++      phone: '+52 442 290 6615',
++      email: 'hcastanon@rededucativabajio.org',
++      company: 'Red Educativa del Bajío A.C.',
++      role: 'Director General',
++      message:
++        'Seguimiento a la firma del convenio marco de colaboración para talleres de formación docente regional.',
++      timestamp: hoursAgo(140),
++      status: 'cerrado',
++      notes: 'Convenio institucional validado y firmado por las áreas competentes. Convocatoria publicada.',
++      nextAction: 'Publicación de bases de convocatoria de formación docente',
++      nextActionDate: daysOffset(-5),
++      nextActionCompleted: true,
++      nextActionCompletedAt: hoursAgo(80)
++    },
++    {
++      id: 'lead_gabriela_05',
++      publicId: 'demo-gabriela-leon',
++      name: 'Mtro. Arturo Zárate',
++      phone: '+52 442 819 4201',
++      email: 'azarate@secretariadesarrollo.gob.mx',
++      company: 'Dirección de Impulso al Empleo Regional',
++      role: 'Coordinador de Programas',
++      message:
++        'Estimada Gabriela, buscamos coordinar la convocatoria anual de becas de certificación técnica para mujeres en la industria.',
++      timestamp: hoursAgo(164),
++      status: 'reunion',
++      notes: 'Revisión de bases de convocatoria agendada para el lunes a las 9:30 AM.'
++    }
++  ]
++};
++
++/**
++ * Generates 5 realistic mock leads for any profile ID
++ */
++export function getMockLeadsForProfileId(publicId: string): CapturedLead[] {
++  const cleanId = publicId.trim().toLowerCase();
++  if (cleanId === 'sara-sazedi') return SARA_MOCK_LEADS;
++  if (DEMO_PROFILES_MOCK_LEADS[cleanId]) return DEMO_PROFILES_MOCK_LEADS[cleanId];
++
++  return [
++    {
++      id: `lead_${cleanId}_01`,
++      publicId: cleanId,
++      name: 'Lic. Roberto Morales Vega',
++      phone: '+52 442 389 4512',
++      email: 'roberto.morales@corporativobajio.mx',
++      company: 'Grupo Empresarial del Bajío',
++      role: 'Director de Operaciones',
++      message:
++        'Revisé tu tarjeta digital y nos interesa agendar una conversación esta semana para evaluar tu propuesta de servicios.',
++      timestamp: hoursAgo(3),
++      status: 'nuevo',
++      notes: 'Prospecto calificado captado desde QR en reunión empresarial.'
++    },
++    {
++      id: `lead_${cleanId}_02`,
++      publicId: cleanId,
++      name: 'Ing. Marcela Salgado',
++      phone: '+52 442 516 7890',
++      email: 'msalgado@innovacionqro.com.mx',
++      company: 'Innovación & Proyectos QRO',
++      role: 'Gerente de Compras y Alianzas',
++      message:
++        'Hola, vi tus casos documentados en la tarjeta digital y tenemos un requerimiento muy similar para este trimestre.',
++      timestamp: hoursAgo(22),
++      status: 'contactado',
++      notes: 'Se envió información inicial por WhatsApp y se acordó llamada de seguimiento.'
++    },
++    {
++      id: `lead_${cleanId}_03`,
++      publicId: cleanId,
++      name: 'Lic. Fernando Garza Ruiz',
++      phone: '+52 442 198 2345',
++      email: 'fgarza@plazanautica.mx',
++      company: 'Corporativo Juriquilla',
++      role: 'Socio Director',
++      message: 'Nos gustaría revisar una propuesta de alcance formal para nuestro equipo directivo.',
++      timestamp: hoursAgo(56),
++      status: 'reunion',
++      notes: 'Sesión de revisión agendada para el martes a las 11:00 AM.'
++    },
++    {
++      id: `lead_${cleanId}_04`,
++      publicId: cleanId,
++      name: 'Dra. Valeria Gómez Conde',
++      phone: '+52 442 670 1122',
++      email: 'valeria.gomez@alttus.mx',
++      company: 'Grupo Alttus Querétaro',
++      role: 'Directora General',
++      message: 'Excelente claridad en tu tarjeta digital. Autorizamos avanzar con la propuesta presentada.',
++      timestamp: hoursAgo(120),
++      status: 'cerrado',
++      notes: 'Acuerdo cerrado satisfactoriamente. Inicio de actividades programado.'
++    },
++    {
++      id: `lead_${cleanId}_05`,
++      publicId: cleanId,
++      name: 'Mtro. Alejandro Villaseñor',
++      phone: '+52 442 814 3309',
++      email: 'avillasenor@capitalbajio.mx',
++      company: 'Consejo Empresarial Querétaro',
++      role: 'Director de Alianzas B2B',
++      message: 'Nos gustaría invitarte a presentar tu solución ante las empresas socias del comité este mes.',
++      timestamp: hoursAgo(144),
++      status: 'contactado',
++      notes: 'Se envió dossier ejecutivo por correo electrónico.'
++    }
++  ];
++}
++
++export interface SeedMockLeadsResult {
++  success: boolean;
++  leads: CapturedLead[];
++  error?: string;
++}
++
++/**
++ * Seeds or restores mock leads exclusively for demo profiles.
++ * Never overwrites real customer leads with mock data.
++ * Does NOT write or seed mock leads into remote Firestore production.
+  */
+-export async function seedMockLeads(publicId: string): Promise<CapturedLead[]> {
++export async function seedMockLeads(
++  publicId: string,
++  options?: { force?: boolean }
++): Promise<SeedMockLeadsResult> {
+   const cleanId = publicId.trim().toLowerCase();
+-  const mockData = cleanId === 'sara-sazedi' ? SARA_MOCK_LEADS : [];
+-  
+-  if (mockData.length === 0) return [];
++  if (!cleanId.startsWith('demo-') && !options?.force) {
++    console.warn('[LeadService] seedMockLeads rejected for non-demo profile:', cleanId);
++    return {
++      success: false,
++      leads: [],
++      error: 'La restauración de ejemplos está restringida exclusivamente a perfiles de demostración.'
++    };
++  }
++
++  const mockData = getMockLeadsForProfileId(cleanId).map((m) => ({
++    ...m,
++    isDemo: true,
++    syncStatus: 'unverified' as const
++  }));
++  const saved = saveLocalLeads(cleanId, mockData);
++  if (!saved) {
++    return {
++      success: false,
++      leads: [],
++      error: 'Error al persistir contactos de ejemplo en el almacenamiento local.'
++    };
++  }
++  return {
++    success: true,
++    leads: mockData
++  };
++}
+ 
+-  // 1. Save locally
+-  saveLocalLeads(cleanId, mockData);
++export type SaveLeadSyncStatus = 'confirmed' | 'pending' | 'failed';
+ 
+-  // 2. Sync to Firestore in the background
++export interface SaveLeadResult {
++  status: SaveLeadSyncStatus;
++  lead: CapturedLead;
++  error?: string;
++  isRetry?: boolean;
++}
++
++export interface PendingLeadEntry {
++  lead: CapturedLead;
++  attempts: number;
++  lastAttemptAt: string;
++  lastError?: string;
++}
++
++const PENDING_QUEUE_PREFIX = 'tarjetas_pending_leads_';
++
++export function getPendingLeads(publicId: string): PendingLeadEntry[] {
+   try {
+-    for (const lead of mockData) {
+-      const docRef = doc(db, COLLECTION_NAME, lead.id);
+-      await setDoc(docRef, lead);
+-    }
+-  } catch (err) {
+-    console.warn('[LeadService] Could not sync mock leads to Firestore:', err);
++    const raw = localStorage.getItem(`${PENDING_QUEUE_PREFIX}${publicId.trim().toLowerCase()}`);
++    return raw ? JSON.parse(raw) : [];
++  } catch {
++    return [];
++  }
++}
++
++export function savePendingQueue(publicId: string, queue: PendingLeadEntry[]): boolean {
++  try {
++    localStorage.setItem(`${PENDING_QUEUE_PREFIX}${publicId.trim().toLowerCase()}`, JSON.stringify(queue));
++    return true;
++  } catch {
++    return false;
++  }
++}
++
++function buildVisitorPayload(lead: CapturedLead): Record<string, any> {
++  const payload: Record<string, any> = {
++    id: lead.id,
++    publicId: lead.publicId,
++    name: lead.name,
++    phone: lead.phone,
++    timestamp: lead.timestamp,
++    source: lead.source || 'general'
++  };
++  if (lead.email && lead.email.trim()) payload.email = lead.email.trim();
++  if (lead.company && lead.company.trim()) payload.company = lead.company.trim();
++  if (lead.role && lead.role.trim()) payload.role = lead.role.trim();
++  if (lead.message && lead.message.trim()) payload.message = lead.message.trim();
++  if (lead.solutionId) payload.solutionId = lead.solutionId;
++  if (lead.solutionTitle) payload.solutionTitle = lead.solutionTitle;
++  return payload;
++}
++
++export function enqueuePendingLead(lead: CapturedLead, error?: string): boolean {
++  const cleanId = lead.publicId.trim().toLowerCase();
++  const queue = getPendingLeads(cleanId);
++  const existingIdx = queue.findIndex((e) => e.lead.id === lead.id);
++
++  // Strip notes so private notes are never stored in visitor's pending queue
++  const sanitizedLead: CapturedLead = {
++    ...lead,
++    notes: undefined
++  };
++
++  const entry: PendingLeadEntry = {
++    lead: sanitizedLead,
++    attempts: existingIdx >= 0 ? queue[existingIdx].attempts + 1 : 1,
++    lastAttemptAt: new Date().toISOString(),
++    lastError: error
++  };
++
++  if (existingIdx >= 0) {
++    const updated = [...queue];
++    updated[existingIdx] = entry;
++    return savePendingQueue(cleanId, updated);
++  }
++
++  // Capacity cap: max 20 unconfirmed items. Do NOT drop existing unconfirmed items.
++  if (queue.length >= 20) {
++    return false;
+   }
+ 
+-  return mockData;
++  const updated = [entry, ...queue];
++  return savePendingQueue(cleanId, updated);
++}
++
++export function removePendingLead(publicId: string, leadId: string): void {
++  const cleanId = publicId.trim().toLowerCase();
++  const queue = getPendingLeads(cleanId);
++  const updated = queue.filter((e) => e.lead.id !== leadId);
++  savePendingQueue(cleanId, updated);
+ }
+ 
+ /**
+- * Saves a new captured lead to Firestore and local storage backup
++ * Saves a new captured lead or reattempts an existing pending lead.
++ * Server-side idempotent operation with stable ID and timestamp preservation.
++ * Distinguishes 3 explicit outcomes:
++ * - 'confirmed': Successfully recorded by the server without altering existing titular notes or status.
++ * - 'pending': Durable in local browser queue, but remote confirmation pending/failed/timed out.
++ * - 'failed': Neither local nor remote storage could record the lead (e.g. queue full or storage disabled).
+  */
+ export async function saveLead(
+-  leadData: Omit<CapturedLead, 'id' | 'timestamp' | 'status'>
+-): Promise<CapturedLead> {
++  leadData: Omit<CapturedLead, 'id' | 'timestamp' | 'status'> & {
++    id?: string;
++    timestamp?: string;
++    status?: CapturedLead['status'];
++  },
++  options: { timeoutMs?: number; simulateRemoteFailure?: boolean } = {}
++): Promise<SaveLeadResult> {
+   const cleanId = leadData.publicId.trim().toLowerCase();
+-  const id = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+-  
+-  const newLead: CapturedLead = {
++  // Preserve stable ID across retries of the same record
++  const id = leadData.id || `lead_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
++
++  // Preserve original timestamp across retries: check queue or local storage if not provided in leadData
++  let timestamp = leadData.timestamp;
++  if (!timestamp) {
++    const existingQueue = getPendingLeads(cleanId);
++    const queueEntry = existingQueue.find((q) => q.lead.id === id);
++    if (queueEntry?.lead.timestamp) {
++      timestamp = queueEntry.lead.timestamp;
++    } else {
++      const localLeads = getLocalLeads(cleanId);
++      const localEntry = localLeads.find((l) => l.id === id);
++      timestamp = localEntry?.timestamp || new Date().toISOString();
++    }
++  }
++
++  const status: CapturedLead['status'] = 'nuevo';
++  const isRetry = Boolean(leadData.id);
++
++  // Strip notes from public lead submission to prevent tampering with or leaking titular notes
++  const leadToSave: CapturedLead = {
+     ...leadData,
+     id,
+     publicId: cleanId,
+-    timestamp: new Date().toISOString(),
+-    status: 'nuevo'
++    timestamp,
++    status,
++    source: leadData.source || 'general',
++    solutionId: leadData.solutionId || undefined,
++    solutionTitle: leadData.solutionTitle || undefined,
++    notes: undefined
+   };
+ 
+-  // 1. Save locally first (instant response)
+-  const local = getLocalLeads(cleanId);
+-  const updated = [newLead, ...local];
+-  saveLocalLeads(cleanId, updated);
++  // 1. Attempt durable local storage save (marked as pending until remote confirmation)
++  let localSaved = false;
++  try {
++    const local = getLocalLeads(cleanId);
++    const existingIdx = local.findIndex((l) => l.id === id);
++    let updated: CapturedLead[];
++    if (existingIdx >= 0) {
++      updated = [...local];
++      updated[existingIdx] = {
++        ...leadToSave,
++        status: updated[existingIdx].status || leadToSave.status,
++        notes: updated[existingIdx].notes, // preserve existing titular notes locally if any
++        syncStatus: 'pending'
++      };
++    } else {
++      updated = [{ ...leadToSave, syncStatus: 'pending' }, ...local];
++    }
++    saveLocalLeads(cleanId, updated);
++    localSaved = true;
++  } catch (localErr) {
++    console.warn('[LeadService] Local storage failed:', localErr);
++    localSaved = false;
++  }
++
++  // 2. Server-side capture operation with bounded timeout
++  const timeoutMs = options.timeoutMs ?? 5000;
++  let remoteConfirmed = false;
++  let remoteError: string | undefined;
++
++  const visitorPayload = buildVisitorPayload(leadToSave);
++
++  const remoteOperation = (async () => {
++    if (options.simulateRemoteFailure) {
++      throw new Error('SIMULATED_NETWORK_FAILURE');
++    }
++    if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
++      try {
++        const resp = await fetch('/api/leads/capture', {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify(visitorPayload)
++        });
++        const contentType = resp.headers.get('content-type') || '';
++        if (resp.ok && contentType.includes('application/json')) {
++          return await resp.json();
++        } else if (resp.status === 409) {
++          throw new Error('Conflicto de identidad: El ID ya pertenece a otro perfil.');
++        }
++      } catch (fetchErr: any) {
++        if (fetchErr.message?.includes('Conflicto')) throw fetchErr;
++      }
++
++      // If server API endpoint is not active (static Firebase Hosting), save directly to Firestore
++      try {
++        const docRef = doc(db, COLLECTION_NAME, id);
++        if (isRetry) {
++          try {
++            await updateDoc(docRef, visitorPayload);
++          } catch (updateErr: any) {
++            const errCode = updateErr?.code;
++            const errMsg = updateErr?.message || '';
++            if (
++              errCode === 'not-found' ||
++              errMsg.includes('No document to update') ||
++              errMsg.toLowerCase().includes('not found')
++            ) {
++              await setDoc(docRef, { ...visitorPayload, status: 'nuevo' });
++            } else {
++              throw updateErr;
++            }
++          }
++        } else {
++          await setDoc(docRef, { ...visitorPayload, status: 'nuevo' });
++        }
++        return {
++          status: 'confirmed',
++          isRetry,
++          lead: { ...leadToSave, syncStatus: 'confirmed' }
++        };
++      } catch (firestoreErr) {
++        // Fallback to server helper if offline
++        return await captureLeadOnServer(visitorPayload as any);
++      }
++    } else {
++      // In Node / SSR / test environment
++      return await captureLeadOnServer(visitorPayload as any);
++    }
++  })();
++
++  // Background reconciliation for late confirmation (arriving after timeout)
++  remoteOperation
++    .then((serverRes) => {
++      if (serverRes?.status === 'confirmed') {
++        removePendingLead(cleanId, id);
++        try {
++          const local = getLocalLeads(cleanId);
++          const updated = local.map((l) =>
++            l.id === id ? { ...l, syncStatus: 'confirmed' as const } : l
++          );
++          saveLocalLeads(cleanId, updated);
++        } catch {}
++      }
++    })
++    .catch(() => {
++      // Handled silently; errors during active attempt are caught by Promise.race below
++    });
+ 
+-  // 2. Sync to Firestore in the background
+   try {
+-    const docRef = doc(db, COLLECTION_NAME, id);
+-    await setDoc(docRef, newLead);
+-  } catch (err) {
+-    console.warn('[LeadService] Could not save to Firestore, stored locally:', err);
++    let timerId: any;
++    const timeoutPromise = new Promise<never>((_, reject) => {
++      timerId = setTimeout(() => reject(new Error('TIMEOUT_REMOTE_CONFIRMATION')), timeoutMs);
++    });
++
++    try {
++      const serverRes: any = await Promise.race([remoteOperation, timeoutPromise]);
++      if (serverRes && serverRes.status === 'confirmed') {
++        remoteConfirmed = true;
++      } else {
++        remoteError = serverRes?.error || 'Error al confirmar en el servidor';
++      }
++    } finally {
++      clearTimeout(timerId);
++    }
++  } catch (err: any) {
++    remoteError = err?.message || 'Remote write failed';
++    console.warn('[LeadService] Server lead capture failed or timed out:', remoteError);
++  }
++
++  // 3. Branching on explicit outcomes
++  if (remoteConfirmed) {
++    // Confirmed remotely: remove from pending queue
++    removePendingLead(cleanId, id);
++
++    // Update local cache to reflect syncStatus: 'confirmed'
++    if (localSaved) {
++      try {
++        const local = getLocalLeads(cleanId);
++        const updated = local.map((l) =>
++          l.id === id ? { ...leadToSave, syncStatus: 'confirmed' as const } : l
++        );
++        saveLocalLeads(cleanId, updated);
++      } catch {}
++    }
++
++    return {
++      status: 'confirmed',
++      lead: { ...leadToSave, syncStatus: 'confirmed' },
++      isRetry
++    };
++  }
++
++  // Remote confirmation not received; attempt enqueue in local queue
++  const enqueued = enqueuePendingLead(leadToSave, remoteError);
++
++  if (enqueued && localSaved) {
++    return {
++      status: 'pending',
++      lead: { ...leadToSave, syncStatus: 'pending' },
++      error: remoteError,
++      isRetry
++    };
++  }
++
++  // Both remote failed and either queue is full or local storage unavailable
++  return {
++    status: 'failed',
++    lead: { ...leadToSave, syncStatus: 'failed' },
++    error: !enqueued
++      ? 'Cola de pendientes completa (máximo 20 contactos). No se pueden conservar nuevos envíos sin confirmación remota.'
++      : (remoteError || 'Almacenamiento local y remoto no disponibles'),
++    isRetry
++  };
++}
++
++/**
++ * Processes queued pending leads for a profile with exponential backoff and limits.
++ * Called on network reconnection, card mount, or manual retry.
++ * Does NOT trigger WhatsApp automatically.
++ */
++export async function processPendingLeads(
++  publicId: string
++): Promise<{ confirmed: string[]; stillPending: string[] }> {
++  const cleanId = publicId.trim().toLowerCase();
++  const queue = getPendingLeads(cleanId);
++
++  if (queue.length === 0) {
++    return { confirmed: [], stillPending: [] };
+   }
+ 
+-  return newLead;
++  const confirmed: string[] = [];
++  const stillPending: string[] = [];
++  const now = Date.now();
++
++  for (const entry of queue) {
++    // Circuit breaker: persistent validation or permission errors stop retrying after 5 attempts
++    if (entry.attempts >= 5) {
++      stillPending.push(entry.lead.id);
++      continue;
++    }
++
++    // Cooldown check: progressive delay (e.g. 5s, 10s, 20s, 40s)
++    const cooldownMs = Math.min(60000, 5000 * Math.pow(2, entry.attempts - 1));
++    const lastAttemptTime = new Date(entry.lastAttemptAt).getTime();
++    if (now - lastAttemptTime < cooldownMs) {
++      stillPending.push(entry.lead.id);
++      continue;
++    }
++
++    // Attempt save with 4s timeout
++    const res = await saveLead(entry.lead, { timeoutMs: 4000 });
++    if (res.status === 'confirmed') {
++      confirmed.push(entry.lead.id);
++    } else {
++      stillPending.push(entry.lead.id);
++    }
++  }
++
++  return { confirmed, stillPending };
+ }
+ 
+ /**
+- * Fetches all captured leads for a given publicId
++ * Fetches captured leads for a given publicId.
++ * Never injects mock leads into real customer profiles.
++ * If zero real contacts exist, returns an empty array.
+  */
+-export async function getLeadsForProfile(publicId: string): Promise<CapturedLead[]> {
++export async function getLeadsForProfile(
++  publicId: string,
++  options: { includeDemo?: boolean } = {}
++): Promise<CapturedLead[]> {
+   const cleanId = publicId.trim().toLowerCase();
+   const local = getLocalLeads(cleanId);
++  const pendingQueue = getPendingLeads(cleanId);
++  const pendingIds = new Set(pendingQueue.map((p) => p.lead.id));
++
++  // Explicit demo mode or demo archetype profiles:
++  // If local storage has an entry (even if empty []), respect it! Do not repopulate a deliberately empty list.
++  // Only seed mock leads on initial absence of data (key not present in localStorage).
++  if (options.includeDemo || cleanId.startsWith('demo-')) {
++    const entry = getLocalLeadsEntry(cleanId);
++    if (entry.exists) {
++      return entry.leads;
++    }
++    const mock = getMockLeadsForProfileId(cleanId).map((m) => ({
++      ...m,
++      isDemo: true,
++      syncStatus: 'unverified' as const
++    }));
++    saveLocalLeads(cleanId, mock);
++    return mock;
++  }
+ 
+   try {
+     const colRef = collection(db, COLLECTION_NAME);
+     const q = query(colRef, where('publicId', '==', cleanId));
+     const snap = await getDocs(q);
+ 
+-    if (!snap.empty) {
+-      const remoteLeads: CapturedLead[] = [];
+-      snap.forEach((d) => {
+-        remoteLeads.push(d.data() as CapturedLead);
++    // If Firestore query succeeded (whether 0, 1, or more leads):
++    const remoteLeads: CapturedLead[] = [];
++    snap.forEach((d) => {
++      remoteLeads.push({
++        ...(d.data() as CapturedLead),
++        syncStatus: 'confirmed'
+       });
+-      // Sort newest first
+-      remoteLeads.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+-      
+-      // Update local storage cache
+-      saveLocalLeads(cleanId, remoteLeads);
+-      return remoteLeads;
+-    }
++    });
++
++    const remoteIds = new Set(remoteLeads.map((l) => l.id));
++
++    // Include locally pending leads that haven't landed remotely yet
++    const localPendingOnly = local
++      .filter((l) => pendingIds.has(l.id) && !remoteIds.has(l.id))
++      .map((l) => ({ ...l, syncStatus: 'pending' as const }));
++
++    const merged = [...remoteLeads, ...localPendingOnly];
++
++    // Sort newest first
++    merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
++
++    // Update local storage cache with real leads ONLY
++    saveLocalLeads(cleanId, merged);
++    return merged;
+   } catch (err) {
+-    console.warn('[LeadService] Firestore load failed, using local leads:', err);
++    console.warn('[LeadService] Firestore load failed, falling back to local leads cache:', err);
+   }
+ 
+-  // If local already has leads, return them
++  // If Firestore query failed (e.g. offline/network error), return local cache
++  // BUT do not assume confirmed unless it had received confirmation!
+   if (local.length > 0) {
+-    return local;
+-  }
+-
+-  // If no leads exist and this is Sara Zea's profile, auto-seed realistic mock leads!
+-  if (cleanId === 'sara-sazedi') {
+-    return await seedMockLeads(cleanId);
++    const merged = local.map((l) => ({
++      ...l,
++      syncStatus: pendingIds.has(l.id)
++        ? ('pending' as const)
++        : l.syncStatus === 'confirmed'
++        ? ('confirmed' as const)
++        : ('unverified' as const)
++    }));
++    merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
++    return merged;
+   }
+ 
++  // Pure empty result for real profiles without contacts: NEVER inject mocks into real profiles!
+   return [];
+ }
+ 
++export interface UpdateLeadFollowUpPayload {
++  status?: CapturedLead['status'];
++  notes?: string;
++  nextAction?: string | null;
++  nextActionDate?: string | null;
++  nextActionTime?: string | null;
++  nextActionCompleted?: boolean;
++  isNewActionSession?: boolean;
++  outcome?: LeadOutcome | null; // explicit outcome or null to clear
++}
++
++export interface UpdateFollowUpResult {
++  success: boolean;
++  lead?: CapturedLead;
++  isLocalOnly: boolean;
++  storageTarget: 'local_device' | 'remote_sync';
++  error?: string;
++}
++
+ /**
+- * Updates a lead status (e.g. 'nuevo' -> 'contactado' -> 'reunion' -> 'cerrado')
++ * Updates titular notes, next action, timing and status with verifiably isolated local persistence.
++ * Rules:
++ * - Empty string notes ('') are preserved as empty string without reverting to previous text.
++ * - Local storage isolation per publicId and lead id.
++ * - Date/time contract: omitted = keep existing, explicit null/empty string = remove/clear.
++ * - Completed actions are stamped and recorded in history if a new next action is later defined.
++ * - Never transforms local save into a false remote confirmation ('confirmed').
++ * - In local/demo mode: missing contact returns error without fabricating from mocks.
+  */
+-export async function updateLeadStatus(
++export async function updateLeadFollowUp(
+   publicId: string,
+   leadId: string,
+-  status: CapturedLead['status'],
+-  notes?: string
+-): Promise<boolean> {
++  updates: UpdateLeadFollowUpPayload,
++  options?: { localOnly?: boolean; simulateStorageFailure?: boolean }
++): Promise<UpdateFollowUpResult> {
+   const cleanId = publicId.trim().toLowerCase();
+-  
+-  // 1. Update local
++
++  if (options?.simulateStorageFailure) {
++    return {
++      success: false,
++      isLocalOnly: true,
++      storageTarget: 'local_device',
++      error: 'Error de almacenamiento simulado: el dispositivo rechazó la escritura local.'
++    };
++  }
++
+   const local = getLocalLeads(cleanId);
+-  const updated = local.map((l) => (l.id === leadId ? { ...l, status, ...(notes !== undefined ? { notes } : {}) } : l));
+-  saveLocalLeads(cleanId, updated);
++  const targetIdx = local.findIndex((l) => l.id === leadId);
++
++  if (targetIdx < 0) {
++    return {
++      success: false,
++      isLocalOnly: true,
++      storageTarget: 'local_device',
++      error: `Contacto no encontrado (ID: ${leadId})`
++    };
++  }
++
++  const targetLead = local[targetIdx];
++
++  // Helper for clear vs omit contract:
++  // - undefined: keep existing value
++  // - null or '': clear/delete value
++  // - string: set new value
++  const resolveField = (newVal: string | null | undefined, currentVal?: string): string | undefined => {
++    if (newVal === null || newVal === '') return undefined;
++    if (newVal !== undefined) return newVal;
++    return currentVal;
++  };
++
++  const nextAction = resolveField(updates.nextAction, targetLead.nextAction);
++  const nextActionDate = resolveField(updates.nextActionDate, targetLead.nextActionDate);
++  const nextActionTime = resolveField(updates.nextActionTime, targetLead.nextActionTime);
++
++  // Preserve history if previous action was completed and a new next action is scheduled
++  const history = targetLead.nextActionHistory ? [...targetLead.nextActionHistory] : [];
++  const shouldArchivePrevious =
++    targetLead.nextActionCompleted &&
++    Boolean(targetLead.nextAction?.trim()) &&
++    (updates.isNewActionSession === true || (updates.nextAction !== undefined && updates.nextActionCompleted === false));
++
++  if (shouldArchivePrevious) {
++    const lastItem = history[history.length - 1];
++    const isDuplicate =
++      lastItem &&
++      lastItem.action === targetLead.nextAction &&
++      lastItem.date === targetLead.nextActionDate &&
++      lastItem.time === targetLead.nextActionTime &&
++      lastItem.completedAt === (targetLead.nextActionCompletedAt || lastItem.completedAt);
++
++    if (!isDuplicate) {
++      history.push({
++        action: targetLead.nextAction!,
++        date: targetLead.nextActionDate,
++        time: targetLead.nextActionTime,
++        completedAt: targetLead.nextActionCompletedAt || new Date().toISOString()
++      });
++    }
++  }
++
++  const nowIso = new Date().toISOString();
++  let nextActionCompleted: boolean;
++  let nextActionCompletedAt: string | undefined;
++
++  if (shouldArchivePrevious) {
++    nextActionCompleted = false;
++    nextActionCompletedAt = undefined;
++  } else if (updates.nextActionCompleted !== undefined) {
++    nextActionCompleted = updates.nextActionCompleted;
++    nextActionCompletedAt =
++      updates.nextActionCompleted === true && !targetLead.nextActionCompleted
++        ? nowIso
++        : updates.nextActionCompleted === false
++        ? undefined
++        : targetLead.nextActionCompletedAt;
++  } else {
++    nextActionCompleted = targetLead.nextActionCompleted || false;
++    nextActionCompletedAt = targetLead.nextActionCompletedAt;
++  }
++
++  let outcome: LeadOutcome | undefined;
++  if (updates.outcome === null) {
++    outcome = undefined; // explicit clearing
++  } else if (updates.outcome !== undefined) {
++    outcome = updates.outcome;
++  } else {
++    outcome = targetLead.outcome;
++  }
++
++  const updatedLead: CapturedLead = {
++    ...targetLead,
++    status: updates.status !== undefined ? updates.status : targetLead.status,
++    notes: updates.notes !== undefined ? updates.notes : targetLead.notes,
++    nextAction,
++    nextActionDate,
++    nextActionTime,
++    nextActionCompleted,
++    nextActionCompletedAt,
++    nextActionHistory: history.length > 0 ? history : undefined,
++    localSavedAt: nowIso,
++    outcome
++  };
++
++  const newLocalList = [...local];
++  newLocalList[targetIdx] = updatedLead;
++
++  const saved = saveLocalLeads(cleanId, newLocalList);
++  if (!saved) {
++    return {
++      success: false,
++      lead: targetLead,
++      isLocalOnly: true,
++      storageTarget: 'local_device',
++      error: 'No se pudo escribir en el almacenamiento del navegador. El borrador se mantiene en memoria.'
++    };
++  }
++
++  const isDemoOrLocal = targetLead.isDemo || cleanId.startsWith('demo-') || options?.localOnly !== false;
++
++  if (isDemoOrLocal) {
++    return {
++      success: true,
++      lead: updatedLead,
++      isLocalOnly: true,
++      storageTarget: 'local_device'
++    };
++  }
+ 
+-  // 2. Update remote
+   try {
+     const docRef = doc(db, COLLECTION_NAME, leadId);
+-    await updateDoc(docRef, { status, ...(notes !== undefined ? { notes } : {}) });
+-    return true;
++    await updateDoc(docRef, {
++      status: updatedLead.status,
++      notes: updatedLead.notes || '',
++      nextAction: updatedLead.nextAction || '',
++      nextActionDate: updatedLead.nextActionDate || '',
++      nextActionTime: updatedLead.nextActionTime || '',
++      nextActionCompleted: updatedLead.nextActionCompleted || false
++    });
++    return {
++      success: true,
++      lead: updatedLead,
++      isLocalOnly: false,
++      storageTarget: 'remote_sync'
++    };
+   } catch (err) {
+-    console.warn('[LeadService] Could not update Firestore status:', err);
+-    return false;
++    return {
++      success: true,
++      lead: updatedLead,
++      isLocalOnly: true,
++      storageTarget: 'local_device',
++      error: 'Guardado en este dispositivo (pendiente de sincronización remota).'
++    };
+   }
+ }
+ 
++/**
++ * Updates a lead status (e.g. 'nuevo' -> 'contactado' -> 'reunion' -> 'cerrado' -> 'descartado')
++ */
++export async function updateLeadStatus(
++  publicId: string,
++  leadId: string,
++  status: CapturedLead['status'],
++  notes?: string
++): Promise<boolean> {
++  const res = await updateLeadFollowUp(publicId, leadId, {
++    status,
++    ...(notes !== undefined ? { notes } : {})
++  });
++  return res.success;
++}
++
+ /**
+  * Deletes a lead
+  */
+ export async function deleteLead(publicId: string, leadId: string): Promise<boolean> {
+   const cleanId = publicId.trim().toLowerCase();
+-  
++
+   // 1. Local delete
+   const local = getLocalLeads(cleanId);
+-  saveLocalLeads(cleanId, local.filter((l) => l.id !== leadId));
++  const targetLead = local.find((l) => l.id === leadId);
++  const saved = saveLocalLeads(
++    cleanId,
++    local.filter((l) => l.id !== leadId)
++  );
++
++  const isDemoOrLocal = targetLead?.isDemo || cleanId.startsWith('demo-');
++  if (isDemoOrLocal) {
++    return saved;
++  }
+ 
+-  // 2. Remote delete
++  // 2. Remote delete for real non-demo profiles only
+   try {
+     const docRef = doc(db, COLLECTION_NAME, leadId);
+     await deleteDoc(docRef);
+diff --git a/src/types/analytics.ts b/src/types/analytics.ts
+index 987580a..e08c933 100644
+--- a/src/types/analytics.ts
++++ b/src/types/analytics.ts
+@@ -27,6 +27,21 @@ export interface CardStats {
+   videoPlays: number;
+   leadsCaptured?: number;
+   lastActive: string;
++  isSynthetic?: boolean;
++}
++
++export type LeadOutcomeType =
++  | 'venta_confirmada'
++  | 'cita_confirmada'
++  | 'colaboracion_acordada'
++  | 'solicitud_atendida'
++  | 'otro';
++
++export interface LeadOutcome {
++  type: LeadOutcomeType;
++  label?: string; // Título o descripción del hito registrado
++  registeredAt: string; // Formato YYYY-MM-DD o ISO
++  note?: string; // Observación breve opcional
+ }
+ 
+ export interface CapturedLead {
+@@ -39,8 +54,34 @@ export interface CapturedLead {
+   role?: string;
+   message?: string;
+   timestamp: string;
+-  status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado';
++  status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado' | 'descartado';
+   notes?: string;
++
++  // Contexto opcional de captura (UX 03)
++  source?: 'general' | 'solution';
++  solutionId?: string;
++  solutionTitle?: string;
++
++  // Estado de sincronización local/remota (distinto del pipeline comercial)
++  syncStatus?: 'confirmed' | 'pending' | 'failed' | 'unverified';
++  isDemo?: boolean;
++
++  // Seguimiento UX 06: Próximo paso, tiempos y persistencia local
++  nextAction?: string;
++  nextActionDate?: string; // Formato YYYY-MM-DD para conservar el día de calendario local sin desvío UTC
++  nextActionTime?: string; // Formato HH:MM opcional
++  nextActionCompleted?: boolean;
++  nextActionCompletedAt?: string;
++  nextActionHistory?: Array<{
++    action: string;
++    date?: string;
++    time?: string;
++    completedAt: string;
++  }>;
++  localSavedAt?: string;
++
++  // Medición de Resultados UX 07: Hitos explícitos registrados por el titular
++  outcome?: LeadOutcome;
+ }
+ 
+ export interface ActivityEvent {
+diff --git a/src/utils/analytics.ts b/src/utils/analytics.ts
+index 29b7ae6..547cfbb 100644
+--- a/src/utils/analytics.ts
++++ b/src/utils/analytics.ts
+@@ -19,7 +19,8 @@ const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
+     linkClicks: 38,
+     videoPlays: 45,
+     leadsCaptured: 5,
+-    lastActive: new Date(Date.now() - 1000 * 60 * 18).toISOString()
++    lastActive: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
++    isSynthetic: true
+   },
+   'sofia-valenzuela': {
+     publicId: 'sofia-valenzuela',
+@@ -33,7 +34,8 @@ const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
+     calendarClicks: 47,
+     linkClicks: 52,
+     videoPlays: 68,
+-    lastActive: new Date(Date.now() - 1000 * 60 * 14).toISOString()
++    lastActive: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
++    isSynthetic: true
+   },
+   'mateo-arrambide': {
+     publicId: 'mateo-arrambide',
+@@ -47,7 +49,8 @@ const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
+     calendarClicks: 28,
+     linkClicks: 91,
+     videoPlays: 74,
+-    lastActive: new Date(Date.now() - 1000 * 60 * 45).toISOString()
++    lastActive: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
++    isSynthetic: true
+   },
+   'cuauhtemoc-gonzalez': {
+     publicId: 'cuauhtemoc-gonzalez',
+@@ -61,7 +64,121 @@ const DEFAULT_INITIAL_STATS: Record<string, CardStats> = {
+     calendarClicks: 34,
+     linkClicks: 44,
+     videoPlays: 42,
+-    lastActive: new Date(Date.now() - 1000 * 60 * 110).toISOString()
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 110).toISOString(),
++    isSynthetic: true
++  },
++  'demo-clara-navarro': {
++    publicId: 'demo-clara-navarro',
++    views: 268,
++    qrScans: 118,
++    shares: 49,
++    vcardDownloads: 74,
++    whatsappClicks: 63,
++    callClicks: 16,
++    emailClicks: 28,
++    calendarClicks: 39,
++    linkClicks: 54,
++    videoPlays: 61,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
++    isSynthetic: true
++  },
++  'demo-diego-salas': {
++    publicId: 'demo-diego-salas',
++    views: 342,
++    qrScans: 154,
++    shares: 72,
++    vcardDownloads: 96,
++    whatsappClicks: 88,
++    callClicks: 14,
++    emailClicks: 31,
++    calendarClicks: 52,
++    linkClicks: 79,
++    videoPlays: 94,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 19).toISOString(),
++    isSynthetic: true
++  },
++  'demo-renata-vidal': {
++    publicId: 'demo-renata-vidal',
++    views: 289,
++    qrScans: 132,
++    shares: 58,
++    vcardDownloads: 81,
++    whatsappClicks: 94,
++    callClicks: 22,
++    emailClicks: 19,
++    calendarClicks: 64,
++    linkClicks: 47,
++    videoPlays: 72,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 24).toISOString(),
++    isSynthetic: true
++  },
++  'demo-jorge-herrera': {
++    publicId: 'demo-jorge-herrera',
++    views: 234,
++    qrScans: 104,
++    shares: 44,
++    vcardDownloads: 68,
++    whatsappClicks: 71,
++    callClicks: 27,
++    emailClicks: 24,
++    calendarClicks: 33,
++    linkClicks: 58,
++    videoPlays: 49,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 31).toISOString(),
++    isSynthetic: true
++  },
++  'demo-adriana-torres': {
++    publicId: 'demo-adriana-torres',
++    views: 318,
++    qrScans: 142,
++    shares: 67,
++    vcardDownloads: 89,
++    whatsappClicks: 82,
++    callClicks: 19,
++    emailClicks: 26,
++    calendarClicks: 45,
++    linkClicks: 92,
++    videoPlays: 84,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 37).toISOString(),
++    isSynthetic: true
++  },
++  'demo-lucia-cardenas': {
++    publicId: 'demo-lucia-cardenas',
++    views: 276,
++    qrScans: 126,
++    shares: 53,
++    vcardDownloads: 77,
++    whatsappClicks: 69,
++    callClicks: 15,
++    emailClicks: 23,
++    calendarClicks: 48,
++    linkClicks: 61,
++    videoPlays: 58,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
++    isSynthetic: true
++  },
++  'demo-gabriela-leon': {
++    publicId: 'demo-gabriela-leon',
++    views: 294,
++    qrScans: 136,
++    shares: 61,
++    vcardDownloads: 84,
++    whatsappClicks: 91,
++    callClicks: 24,
++    emailClicks: 21,
++    calendarClicks: 56,
++    linkClicks: 68,
++    videoPlays: 76,
++    leadsCaptured: 5,
++    lastActive: new Date(Date.now() - 1000 * 60 * 28).toISOString(),
++    isSynthetic: true
+   }
+ };
+ 
+@@ -129,6 +246,231 @@ const DEFAULT_INITIAL_EVENTS: ActivityEvent[] = [
+     type: 'calendar_click',
+     timestamp: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
+     label: 'Agendar Diagnóstico Fiscal'
++  },
++  // 4 sets of events for each of the 7 demo profiles
++  {
++    id: 'evt-clara-1',
++    publicId: 'demo-clara-navarro',
++    participantName: 'Clara Navarro',
++    type: 'calendar_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
++    label: 'Sesión Diagnóstico B2B agendada'
++  },
++  {
++    id: 'evt-clara-2',
++    publicId: 'demo-clara-navarro',
++    participantName: 'Clara Navarro',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 38).toISOString(),
++    label: 'Prospecto capturado: Lic. Héctor Villalobos'
++  },
++  {
++    id: 'evt-clara-3',
++    publicId: 'demo-clara-navarro',
++    participantName: 'Clara Navarro',
++    type: 'vcard_download',
++    timestamp: new Date(Date.now() - 1000 * 60 * 65).toISOString(),
++    label: 'Descarga vCard 3.0'
++  },
++  {
++    id: 'evt-clara-4',
++    publicId: 'demo-clara-navarro',
++    participantName: 'Clara Navarro',
++    type: 'qr_scan',
++    timestamp: new Date(Date.now() - 1000 * 60 * 95).toISOString(),
++    label: 'Escaneo QR en Foro Empresarial'
++  },
++  {
++    id: 'evt-diego-1',
++    publicId: 'demo-diego-salas',
++    participantName: 'Diego Salas',
++    type: 'calendar_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 19).toISOString(),
++    label: 'Demo en Vivo agendada'
++  },
++  {
++    id: 'evt-diego-2',
++    publicId: 'demo-diego-salas',
++    participantName: 'Diego Salas',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 44).toISOString(),
++    label: 'Prospecto capturado: Sebastián Orozco (CTO)'
++  },
++  {
++    id: 'evt-diego-3',
++    publicId: 'demo-diego-salas',
++    participantName: 'Diego Salas',
++    type: 'video_play',
++    timestamp: new Date(Date.now() - 1000 * 60 * 78).toISOString(),
++    label: 'Reproducción Demo: Pulso Operativo IA'
++  },
++  {
++    id: 'evt-diego-4',
++    publicId: 'demo-diego-salas',
++    participantName: 'Diego Salas',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 110).toISOString(),
++    label: 'Consulta API & Sandbox Enterprise'
++  },
++  {
++    id: 'evt-renata-1',
++    publicId: 'demo-renata-vidal',
++    participantName: 'Dra. Renata Vidal',
++    type: 'calendar_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 24).toISOString(),
++    label: 'Valoración Inicial reservada'
++  },
++  {
++    id: 'evt-renata-2',
++    publicId: 'demo-renata-vidal',
++    participantName: 'Dra. Renata Vidal',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 52).toISOString(),
++    label: 'Consulta recibida: Alejandra Domínguez'
++  },
++  {
++    id: 'evt-renata-3',
++    publicId: 'demo-renata-vidal',
++    participantName: 'Dra. Renata Vidal',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 84).toISOString(),
++    label: 'WhatsApp: Check-up Longevidad'
++  },
++  {
++    id: 'evt-renata-4',
++    publicId: 'demo-renata-vidal',
++    participantName: 'Dra. Renata Vidal',
++    type: 'vcard_download',
++    timestamp: new Date(Date.now() - 1000 * 60 * 130).toISOString(),
++    label: 'Contacto médico guardado (vCard)'
++  },
++  {
++    id: 'evt-jorge-1',
++    publicId: 'demo-jorge-herrera',
++    participantName: 'Ing. Jorge Herrera',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 31).toISOString(),
++    label: 'Solicitud de Cotización Técnica RFQ'
++  },
++  {
++    id: 'evt-jorge-2',
++    publicId: 'demo-jorge-herrera',
++    participantName: 'Ing. Jorge Herrera',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 64).toISOString(),
++    label: 'Prospecto capturado: Ing. Gustavo Peralta'
++  },
++  {
++    id: 'evt-jorge-3',
++    publicId: 'demo-jorge-herrera',
++    participantName: 'Ing. Jorge Herrera',
++    type: 'link_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 92).toISOString(),
++    label: 'Descarga Catálogo ISO 9001'
++  },
++  {
++    id: 'evt-jorge-4',
++    publicId: 'demo-jorge-herrera',
++    participantName: 'Ing. Jorge Herrera',
++    type: 'qr_scan',
++    timestamp: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
++    label: 'Escaneo QR en Expo Industrial Bajío'
++  },
++  {
++    id: 'evt-adriana-1',
++    publicId: 'demo-adriana-torres',
++    participantName: 'Arq. Adriana Torres',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 37).toISOString(),
++    label: 'Cotización de Proyecto Arquitectónico'
++  },
++  {
++    id: 'evt-adriana-2',
++    publicId: 'demo-adriana-torres',
++    participantName: 'Arq. Adriana Torres',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 71).toISOString(),
++    label: 'Prospecto capturado: Federico Elizondo'
++  },
++  {
++    id: 'evt-adriana-3',
++    publicId: 'demo-adriana-torres',
++    participantName: 'Arq. Adriana Torres',
++    type: 'video_play',
++    timestamp: new Date(Date.now() - 1000 * 60 * 105).toISOString(),
++    label: 'Recorrido Lookbook: Casa Piedra & Luz'
++  },
++  {
++    id: 'evt-adriana-4',
++    publicId: 'demo-adriana-torres',
++    participantName: 'Arq. Adriana Torres',
++    type: 'vcard_download',
++    timestamp: new Date(Date.now() - 1000 * 60 * 150).toISOString(),
++    label: 'Descarga vCard 3.0'
++  },
++  {
++    id: 'evt-lucia-1',
++    publicId: 'demo-lucia-cardenas',
++    participantName: 'Mtra. Lucía Cárdenas',
++    type: 'calendar_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
++    label: 'Consulta Patrimonial Confidencial agendada'
++  },
++  {
++    id: 'evt-lucia-2',
++    publicId: 'demo-lucia-cardenas',
++    participantName: 'Mtra. Lucía Cárdenas',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 76).toISOString(),
++    label: 'Prospecto capturado: Eugenio Valladares'
++  },
++  {
++    id: 'evt-lucia-3',
++    publicId: 'demo-lucia-cardenas',
++    participantName: 'Mtra. Lucía Cárdenas',
++    type: 'vcard_download',
++    timestamp: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
++    label: 'Descarga vCard 3.0'
++  },
++  {
++    id: 'evt-lucia-4',
++    publicId: 'demo-lucia-cardenas',
++    participantName: 'Mtra. Lucía Cárdenas',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 160).toISOString(),
++    label: 'Consulta Blindaje Societario & Sucesorio'
++  },
++  {
++    id: 'evt-gabriela-1',
++    publicId: 'demo-gabriela-leon',
++    participantName: 'Gabriela León',
++    type: 'calendar_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 28).toISOString(),
++    label: 'Recorrido Privado agendado'
++  },
++  {
++    id: 'evt-gabriela-2',
++    publicId: 'demo-gabriela-leon',
++    participantName: 'Gabriela León',
++    type: 'lead_capture',
++    timestamp: new Date(Date.now() - 1000 * 60 * 59).toISOString(),
++    label: 'Inversionista registrado: Dr. Mauricio Zertuche'
++  },
++  {
++    id: 'evt-gabriela-3',
++    publicId: 'demo-gabriela-leon',
++    participantName: 'Gabriela León',
++    type: 'whatsapp_click',
++    timestamp: new Date(Date.now() - 1000 * 60 * 96).toISOString(),
++    label: 'Solicitud Dossier de Inversión'
++  },
++  {
++    id: 'evt-gabriela-4',
++    publicId: 'demo-gabriela-leon',
++    participantName: 'Gabriela León',
++    type: 'video_play',
++    timestamp: new Date(Date.now() - 1000 * 60 * 135).toISOString(),
++    label: 'Reproducción Tour: Penthouses Reserva Sur'
+   }
+ ];
+ 
+@@ -136,7 +478,8 @@ export function getStoredStats(): Record<string, CardStats> {
+   try {
+     const raw = localStorage.getItem(STATS_STORAGE_KEY);
+     if (raw) {
+-      return JSON.parse(raw);
++      const parsed = JSON.parse(raw);
++      return { ...DEFAULT_INITIAL_STATS, ...parsed };
+     }
+   } catch {
+     // Fallback
+@@ -148,7 +491,12 @@ export function getStoredEvents(): ActivityEvent[] {
+   try {
+     const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
+     if (raw) {
+-      return JSON.parse(raw);
++      const parsed: ActivityEvent[] = JSON.parse(raw);
++      if (Array.isArray(parsed)) {
++        const existingIds = new Set(parsed.map((e) => e.id));
++        const missingDefaults = DEFAULT_INITIAL_EVENTS.filter((e) => !existingIds.has(e.id));
++        return [...parsed, ...missingDefaults];
++      }
+     }
+   } catch {
+     // Fallback
+@@ -156,6 +504,22 @@ export function getStoredEvents(): ActivityEvent[] {
+   return DEFAULT_INITIAL_EVENTS;
+ }
+ 
++const _recentEvents = new Map<string, number>();
++
++/**
++ * Sanitizes event labels to strictly prevent private user data (emails, phones, PINs, notes)
++ * from ever leaking into public activity telemetry or storage.
++ */
++export function sanitizeEventLabel(rawLabel?: string): string | undefined {
++  if (!rawLabel) return undefined;
++  let clean = rawLabel;
++  clean = clean.replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g, '[correo protegido]');
++  clean = clean.replace(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[teléfono protegido]');
++  clean = clean.replace(/\bpin\s*[:=]\s*\w+/gi, 'pin: [protegido]');
++  clean = clean.replace(/\b(nota|mensaje|password|clave)\s*[:=]\s*[^,\n]+/gi, '$1: [protegido]');
++  return clean;
++}
++
+ export function recordActivity(
+   publicId: string,
+   participantName: string,
+@@ -163,6 +527,17 @@ export function recordActivity(
+   label?: string
+ ): void {
+   try {
++    const cleanLabel = sanitizeEventLabel(label);
++
++    // Technical deduplication: ignore rapid duplicate re-invocations (< 800ms) for the exact same event
++    const now = Date.now();
++    const dedupKey = `${publicId}_${type}_${cleanLabel || ''}`;
++    const lastTimestamp = _recentEvents.get(dedupKey);
++    if (lastTimestamp && now - lastTimestamp < 800) {
++      return;
++    }
++    _recentEvents.set(dedupKey, now);
++
+     const stats = getStoredStats();
+     const events = getStoredEvents();
+ 
+@@ -179,12 +554,15 @@ export function recordActivity(
+         calendarClicks: 0,
+         linkClicks: 0,
+         videoPlays: 0,
+-        lastActive: new Date().toISOString()
++        lastActive: new Date().toISOString(),
++        isSynthetic: false
+       };
+     }
+ 
+     const current = stats[publicId];
+     current.lastActive = new Date().toISOString();
++    // A locally observed user event marks this profile stats as observed on this device
++    current.isSynthetic = false;
+ 
+     switch (type) {
+       case 'view':
+@@ -217,6 +595,9 @@ export function recordActivity(
+       case 'video_play':
+         current.videoPlays += 1;
+         break;
++      case 'lead_capture':
++        current.leadsCaptured = (current.leadsCaptured || 0) + 1;
++        break;
+     }
+ 
+     const newEvent: ActivityEvent = {
+@@ -225,7 +606,7 @@ export function recordActivity(
+       participantName,
+       type,
+       timestamp: new Date().toISOString(),
+-      label
++      label: cleanLabel
+     };
+ 
+     // Keep last 150 events

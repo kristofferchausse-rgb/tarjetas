@@ -1,0 +1,41 @@
+================================================================================
+MANIFIESTO DE CAPTURAS VISUALES — FASE UX08: PLAN EMPRESARIAL
+PROYECTO: Tarjetas Digitales Inteligentes • Tribu Creativa QRO / RedConecta MX
+FECHA: 2026-11-02T20:31:57.549Z
+MOTOR: Google Chrome Headless (CDP Protocol, Device Scale Factor: 2x)
+================================================================================
+
+CAPTURA 1: ux08-gestion-empresas-studio.png
+Resolución: 1280x900 (2x Retina)
+Propósito: Panel de Gestión Corporativa y de Equipos en el Studio de la Agencia
+Comprobaciones de DOM satisfechas:
+  ✓ Vista de gestión de agencias en Studio verificada
+  ✓ Empresa benchmark Nexo Operativo seleccionada con métricas verificadas
+  ✓ Integrantes vinculados (Jorge Herrera, Diego Salas) visibles con controles de edición y duplicación
+  ✓ Editor de identidad de marca corporativa verificado
+
+--------------------------------------------------------------------------------
+
+CAPTURA 2: ux08-directorio-corporativo-movil.png
+Resolución: 390x844 (2x Retina)
+Propósito: Directorio Corporativo Móvil (390px) con buscador, filtros de área y tarjetas de integrantes
+Comprobaciones de DOM satisfechas:
+  ✓ Directorio corporativo público móvil 390px verificado
+  ✓ Cabecera corporativa con logotipo SVG, propuesta de valor y canales de contacto
+  ✓ Filtros por área y buscador funcional sin recarga
+  ✓ Integrantes activos mostrados con declaración de función concreta ("Qué atiende")
+  ✓ Aislamiento de privacidad: 0 datos privados de CRM, notas o PINs expuestos
+
+--------------------------------------------------------------------------------
+
+CAPTURA 3: ux08-tarjeta-integrante-equipo.png
+Resolución: 390x844 (2x Retina)
+Propósito: Tarjeta individual de integrante con acceso discreto al directorio corporativo
+Comprobaciones de DOM satisfechas:
+  ✓ Tarjeta de integrante Jorge Herrera verificada en móvil (390px)
+  ✓ Acceso discreto "Conoce al equipo" visible junto a la empresa sin desplazar la identidad individual
+  ✓ Propuesta de valor personal, soluciones concretas y llamada a la acción priorizadas
+  ✓ Hereda logotipo e identidad visual de la empresa corporativa
+
+--------------------------------------------------------------------------------
+

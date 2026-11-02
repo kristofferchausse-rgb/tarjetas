@@ -1,0 +1,148 @@
+================================================================================
+NOTA DE ENTREGA — FASE UX08: PLAN EMPRESARIAL: MARCA, EQUIPO Y GESTIÓN DE AGENCIA
+PROYECTO: Tarjetas Digitales Inteligentes • Tribu Creativa QRO / RedConecta MX
+FECHA: 2026-11-02
+ESTADO: UX08 implementada, lista para revisión con registro de observaciones acumuladas
+================================================================================
+
+1. DECISIÓN DE ALCANCE Y CONTEXTO
+--------------------------------------------------------------------------------
+Siguiendo la directriz del usuario, avanzamos por fases acumulando observaciones
+para revisarlas en conjunto posteriormente. Se conservan registrados los pendientes
+anteriores sin darlos por cerrados.
+
+Esta entrega se desarrolló e implementó de forma local y comprobable:
+- No se modificó el backend remoto, las reglas de Firestore, la autenticación ni
+  la cola de captura de UX03B (la cual permanece aplazada por decisión del usuario).
+- Se utilizaron datos sintéticos y almacenamiento local explícito sin tocar datos
+  de clientes reales.
+- El plan empresarial NO constituye un 8vo arquetipo. Cada miembro conserva su
+  propio professionalProfile (uno de los 7 arquetipos de diseño vigentes), su
+  propuesta de valor, soluciones concretas y llamada a la acción individual.
+- La pertenencia corporativa no habilita automáticamente Meeting Intelligence
+  (se respeta la configuración y cuota independiente de cada perfil).
+
+
+2. RESUMEN DE LA IMPLEMENTACIÓN
+--------------------------------------------------------------------------------
+A. Cuentas Corporativas & Benchmark Sintético:
+   - Se diseñó el modelo `CompanyAccount` (`src/types/company.ts`) con identidad de
+     marca, canales generales, áreas/departamentos funcionales y enlaces clave.
+   - Se crearon 2 empresas benchmark de referencia en `src/services/companyService.ts`:
+     * "Nexo Operativo" (Servicios Técnicos & Proyectos Industriales).
+     * "Ágora Consultores" (Desarrollo Organizacional & Efectividad de Equipos).
+   - Slugs únicos validados sin colisión y persistencia en `redconecta_companies_v1`.
+
+B. Herencia de Marca y Excepciones Explícitas:
+   - Función `resolveMemberBrand`: El integrante hereda automáticamente logotipo SVG
+     y color primario corporativo de la empresa.
+   - Soporte para excepciones de marca individuales (`brandOverrides.overrideBrand = true`),
+     respetando colores y emblemas propios cuando un integrante lo requiera (ej. Diego Salas).
+
+C. Directorio Corporativo Móvil (`/e/:slug`, `/empresa/:slug` y `?e=` / `?empresa=`):
+   - Componente `CompanyDirectoryView` optimizado para visualización móvil (390px)
+     y responsiva en escritorio.
+   - Cabecera con marca, propuesta de valor de la empresa y canales de contacto directo.
+   - Buscador en tiempo real y selector de área o departamento.
+   - Listado de integrantes que filtra estrictamente miembros activos y publicados
+     (excluyendo borradores e inactivos).
+   - Cada ficha expone de forma clara "Qué atiende en la empresa" y botón directo a su tarjeta.
+   - Privacidad estricta: 0 datos privados de CRM, notas internas, correos de prospección
+     o códigos PIN expuestos al visitante.
+
+D. Tarjeta de Integrante con Acceso Discreto al Equipo:
+   - En `DigitalCard.tsx`, se incluyó una pastilla sutil *"Conoce al equipo"* con icono
+     de usuarios y flecha junto al nombre de la empresa.
+   - Se prioriza inequívocamente la identidad del titular, su propuesta de valor
+     y su botón de acción principal (WhatsApp / Agenda) antes de cualquier enlace corporativo.
+   - Las tarjetas individuales sin empresa (ej. Sara Sazedi) funcionan con normalidad
+     y no muestran dicho botón.
+
+E. Duplicación Segura de Tarjetas y Desvinculación Limpia:
+   - Función `duplicateMemberCard`: Genera publicId y uid únicos, vacía datos personales
+     (nombre, teléfono, correo, foto), vacía PIN y notas de operador, e inicia en borrador.
+     NUNCA duplica ni traslada prospectos, notas ni métricas del CRM.
+   - Función `unlinkMemberFromCompany`: Elimina la vinculación corporativa sin borrar
+     la tarjeta del titular, conservando sus soluciones, contactos y CRM intactos.
+
+F. Gestión de Agencia en el Studio (`CompanyManagerView`):
+   - Integrado en `AdminDashboard.tsx` bajo la pestaña *"🏢 Empresas & Equipos"*.
+   - Selector rápido entre empresas corporativas.
+   - Resumen administrativo veraz con métricas tangibles (Empresas, Integrantes,
+     Activos en Directorio, Áreas) sin inventar cálculos de ROI falsos.
+   - Editor de identidad de marca (colores, logotipo, lema, canales).
+   - Gestión de áreas funcionales y tabla de integrantes con filtros por área y estado.
+   - Acciones para vincular perfil existente, crear desde plantilla corporativa,
+     duplicar tarjeta o desvincular miembro con un clic.
+
+
+3. RESULTADOS DE VERIFICACIÓN AUTOMATIZADA
+--------------------------------------------------------------------------------
+- Suite UX08 (`scripts/verify-ux08.ts`):
+  * 60 pruebas ejecutadas | 60 aprobadas (100% de éxito).
+  * Cubre persistencia de empresas, colisión de slugs, herencia y overrides de marca,
+    duplicación limpia de tarjetas sin datos personales ni CRM, desvinculación segura,
+    filtros del directorio público y compatibilidad con tarjetas individuales.
+- Regresiones de Fases Anteriores:
+  * UX07 (`scripts/verify-ux07.ts`): 47/47 pruebas aprobadas.
+  * UX06 (`scripts/verify-ux06.ts`): 67/67 pruebas aprobadas.
+  * UX05 (`scripts/verify-ux05.ts`): 48/48 pruebas aprobadas.
+- Compilación de Producción (`npm run build`):
+  * Cero errores de TypeScript (`tsc --noEmit` exitoso).
+  * Bundle Vite y 19 micrositios Open Graph pre-renderizados en 322ms.
+
+
+4. EVIDENCIA VISUAL HEADLESS CHROME (2X RETINA)
+--------------------------------------------------------------------------------
+Generadas con Google Chrome Headless mediante protocolo CDP directo y aserciones
+estrictas de DOM:
+
+1. `ux08-gestion-empresas-studio.png` (Desktop 1280x900):
+   Vista del panel de gestión corporativa de agencia en el Studio, mostrando
+   la cuenta benchmark de Nexo Operativo, métricas administrativas reales,
+   editor de marca y tabla de integrantes con botones de duplicación y enlace.
+
+2. `ux08-directorio-corporativo-movil.png` (Móvil 390x844):
+   Directorio corporativo público móvil para Nexo Operativo con logotipo SVG,
+   propuesta de valor, canales de contacto, chips de filtro por área funcional
+   y tarjetas de integrantes con la declaración "Qué atiende en la empresa".
+
+3. `ux08-tarjeta-integrante-equipo.png` (Móvil 390x844):
+   Tarjeta de Jorge Herrera mostrando el botón discreto "Conoce al equipo"
+   en la cabecera, preservando su identidad profesional, soluciones industriales
+   y botón principal de WhatsApp destacado.
+
+Manifiesto completo detallado en `MANIFIESTO_CAPTURAS_UX08.txt`.
+
+
+5. REGISTRO ACUMULADO DE PENDIENTES Y OBSERVACIONES
+--------------------------------------------------------------------------------
+Conforme a la instrucción de acumular observaciones para revisión conjunta:
+
+[UX03B - Aplazada por decisión del usuario]:
+- Persistencia real de contactos en Firestore remoto y reglas de seguridad en la nube.
+- Autenticación remota de titulares y sincronización cloud bidireccional.
+- Cola offline IndexedDB con reintentos automáticos en segundo plano.
+
+[UX05 - Lectura, Navegación y Recursos]:
+- Soporte para rutas relativas en exportación HTML cuando el micrositio no se sirve
+  en la raíz del servidor web.
+- Revisión de armonización editorial de descripciones largas en perfiles institucionales.
+
+[UX06 - Mini-CRM y Seguimiento]:
+- Pruebas interactivas con teclados virtuales y comportamiento de campos de fecha/hora
+  en dispositivos móviles de gama baja.
+- Persistencia local sincronizada entre múltiples navegadores si se deseara sin cloud.
+
+[UX07 - Métricas Claras y Resultados]:
+- Extensión opcional de gráficas temporales de actividad cuando se disponga de base
+  de datos analítica histórica centralizada.
+
+[UX08 - Plan Empresarial y Equipos]:
+- Importación masiva por archivo CSV o Excel para empresas que incorporen más de 50
+  integrantes de forma simultánea (actualmente el flujo es ágil mediante duplicación
+  y plantillas en el Studio).
+- Opciones avanzadas de roles de permisos dentro de la empresa si en el futuro se
+  desea que la propia empresa (y no solo la agencia) administre a sus propios miembros.
+================================================================================
+

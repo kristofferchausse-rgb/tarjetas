@@ -27,6 +27,21 @@ export interface CardStats {
   videoPlays: number;
   leadsCaptured?: number;
   lastActive: string;
+  isSynthetic?: boolean;
+}
+
+export type LeadOutcomeType =
+  | 'venta_confirmada'
+  | 'cita_confirmada'
+  | 'colaboracion_acordada'
+  | 'solicitud_atendida'
+  | 'otro';
+
+export interface LeadOutcome {
+  type: LeadOutcomeType;
+  label?: string; // Título o descripción del hito registrado
+  registeredAt: string; // Formato YYYY-MM-DD o ISO
+  note?: string; // Observación breve opcional
 }
 
 export interface CapturedLead {
@@ -39,8 +54,34 @@ export interface CapturedLead {
   role?: string;
   message?: string;
   timestamp: string;
-  status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado';
+  status: 'nuevo' | 'contactado' | 'reunion' | 'cerrado' | 'descartado';
   notes?: string;
+
+  // Contexto opcional de captura (UX 03)
+  source?: 'general' | 'solution';
+  solutionId?: string;
+  solutionTitle?: string;
+
+  // Estado de sincronización local/remota (distinto del pipeline comercial)
+  syncStatus?: 'confirmed' | 'pending' | 'failed' | 'unverified';
+  isDemo?: boolean;
+
+  // Seguimiento UX 06: Próximo paso, tiempos y persistencia local
+  nextAction?: string;
+  nextActionDate?: string; // Formato YYYY-MM-DD para conservar el día de calendario local sin desvío UTC
+  nextActionTime?: string; // Formato HH:MM opcional
+  nextActionCompleted?: boolean;
+  nextActionCompletedAt?: string;
+  nextActionHistory?: Array<{
+    action: string;
+    date?: string;
+    time?: string;
+    completedAt: string;
+  }>;
+  localSavedAt?: string;
+
+  // Medición de Resultados UX 07: Hitos explícitos registrados por el titular
+  outcome?: LeadOutcome;
 }
 
 export interface ActivityEvent {

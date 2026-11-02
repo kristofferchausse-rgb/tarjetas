@@ -1,0 +1,128 @@
+================================================================================
+NOTA DE CIERRE Y DICTAMEN TÉCNICO: FASE UX05
+Tarjetas Digitales Inteligentes • Tribu Creativa QRO / RedConecta MX
+================================================================================
+
+1. DICTAMEN SOBRE LA DEDUPLICACIÓN DE ENLACES:
+   ¿Hubo corrección o la implementación ya conservaba las diferencias entre URLs?
+
+   SÍ, HUBO CORRECCIÓN TÉCNICA SUSTANCIAL.
+   
+   La versión preliminar utilizaba una función `normalizeUrlForComparison` que:
+   a) Eliminaba de forma indiscriminada todos los query parameters (`split('?')[0]`),
+      lo cual provocaba colisiones indebidas entre URLs con parámetros funcionales
+      (por ejemplo, `/catalogo?producto=A` y `/catalogo?producto=B`).
+   b) Forzaba `toLowerCase()` sobre toda la cadena de la URL, perdiendo la distinción
+      entre rutas sensibles a mayúsculas (por ejemplo, `/archivo/AbC` y `/archivo/abc`).
+   c) No preservaba los fragmentos/hashes (`#requisitos` vs `#costos`).
+   d) Deduplicaba contra Google Maps incluso si la tarjeta tenía modalidad remota
+      y la sección física de mapas no se renderizaba.
+
+   CORRECCIÓN APLICADA EN `src/utils/cardHelpers.ts`:
+   - Se preservan intactos los parámetros funcionales (producto, id, agenda, idioma, filtros).
+   - Se excluyen expresamente ÚNICAMENTE parámetros de marketing tracking conocidos:
+     `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `fbclid`, `gclid`.
+   - Se preserva el casing de la ruta (pathname) y los fragmentos hash (`#...`).
+   - Se respeta la condición de renderizado real:
+     * La acción primaria solo deduplica si `enabled && isValid`.
+     * Google Maps solo deduplica si `shouldShowPhysicalLocation(profile)` y `profile.address` existen.
+     * El calendario solo deduplica si está habilitado o se muestra como canal complementario.
+     * El sitio web solo deduplica si el botón oficial de sitio web está presente.
+   - La URL original de cada recurso se conserva intacta en el objeto devuelto.
+   - Si la equivalencia es incierta, el recurso siempre se preserva.
+
+2. SALIDAS LITERALES DE PRUEBAS Y COMPROBACIONES:
+
+[Comprobación 1: scripts/verify-ux05.ts]
+======================================================
+FASE UX05: VERIFICACIÓN INTEGRAL DE NAVEGACIÓN Y FLUJO
+======================================================
+
+--- 1. Deduplicación Inteligente de Enlaces y Recursos (Fixtures A-G) ---
+  ✓ PASS: Fixture A: La misma URL repetida se consolida a un único recurso
+  ✓ PASS: Fixture B: Parámetros funcionales de producto se conservan diferenciados
+  ✓ PASS: Fixture C: Mayúsculas de la ruta se conservan diferenciadas
+  ✓ PASS: Fixture D: Fragmentos/hash hacia diferentes secciones se conservan
+  ✓ PASS: Fixture E.1: Enlace no se elimina si la acción principal está deshabilitada
+  ✓ PASS: Fixture E.2: Enlace a Maps se conserva si la tarjeta es remota y no muestra mapa en cabecera
+  ✓ PASS: Fixture F: React deduplica correctamente a 2 recursos
+  ✓ PASS: Fixture F: Exportación HTML conserva ambos recursos
+  ✓ PASS: Fixture F: Exportación HTML no repite el enlace duplicado
+  ✓ PASS: Fixture G: La URL original se conserva exactamente intacta en el objeto devuelto
+  ✓ PASS: Normalizador: Excluye expresamente parámetros de seguimiento (utm_*) sin alterar la ruta
+
+--- 2. Orden Secuencial del Recorrido Vertical ---
+  ✓ PASS: demo-clara-navarro es un perfil comercial estándar (!isCollaborationOriented)
+  ✓ PASS: demo-adriana-torres es un perfil de vinculación directiva (isCollaborationOriented)
+  ✓ PASS: demo-gabriela-leon es un perfil institucional público (isCollaborationOriented)
+
+--- 3. Exportación HTML Estática e Inclusión de Testimonios ---
+  ✓ PASS: HTML de Clara incluye sección de soluciones
+  ✓ PASS: HTML de Clara incluye pasos de proceso de trabajo
+  ✓ PASS: HTML de Clara incluye sección de testimonios
+  ✓ PASS: HTML de Clara incluye autor del testimonio
+  ✓ PASS: HTML de Clara incluye recursos útiles deduplicados
+  ✓ PASS: HTML de Clara incluye alianzas
+  ✓ PASS: HTML exportado incluye pie de autoría discreto de RedConecta MX
+  ✓ PASS: En perfil estándar: Soluciones precede a Testimonios
+  ✓ PASS: En perfil estándar: Testimonios precede a Recursos Útiles
+  ✓ PASS: En perfil estándar: Recursos Útiles precede a Alianzas
+  ✓ PASS: HTML institucional contiene Programas y Alianzas
+  ✓ PASS: En perfil de colaboración: Programas precede a Alianzas
+  ✓ PASS: En perfil de colaboración: Alianzas precede a Proceso
+  ✓ PASS: En perfil de colaboración: Proceso precede a Respaldos
+
+--- 4. Jerarquía y Distinción Inequívoca de las 4 Acciones ---
+  ✓ PASS: Acción 1: invoca onDownloadVCard para descargar vCard
+  ✓ PASS: Acción 1: etiqueta/tooltip clara "Guardar contacto en el dispositivo"
+  ✓ PASS: Acción 1: no emite falsas afirmaciones de haber sido guardado automáticamente en la agenda del teléfono
+  ✓ PASS: Acción 2: invoca handleQuickShare para enlace público o modal
+  ✓ PASS: Acción 2: etiqueta explícita "Compartir tarjeta digital"
+  ✓ PASS: Acción 3: invoca handleTriggerQR para ver QRModal
+  ✓ PASS: Acción 3: etiqueta explícita "Ver código QR"
+  ✓ PASS: Acción 4: botón directo para captar y compartir datos del visitante
+  ✓ PASS: Acción 4: establece contexto general de captura
+
+--- 5. Pie de Tarjeta, Herramientas del Titular y Safe Area ---
+  ✓ PASS: Contenedor principal cuenta con holgura pb-36 sm:pb-40 para que el dock fijo no tape contenido
+  ✓ PASS: Dock inferior flotante incluye padding con safe-area-inset-bottom para notch/barras de navegación móviles
+  ✓ PASS: Acceso a utilidades del titular está agrupado de forma colapsable
+  ✓ PASS: Atribución a Tribu Creativa QRO / RedConecta MX es discreta y elegante
+  ✓ PASS: Incluye enlace de cumplimiento normativo a Aviso de Privacidad
+  ✓ PASS: Incluye enlace de cumplimiento normativo a Términos del Servicio
+  ✓ PASS: Incluye enlace de cumplimiento normativo a Derechos ARCO
+
+--- 6. Verificación de Residuos Nulos en Secciones Vacías ---
+  ✓ PASS: Si solutions está vacío, no se imprime título de soluciones
+  ✓ PASS: Si testimonials está vacío, no se imprime título de testimonios
+  ✓ PASS: Si links está vacío, no se imprime título de recursos
+  ✓ PASS: Si networkingTargets está vacío, no se imprime título de alianzas
+
+======================================================
+RESULTADO DE LA SUITE UX05: 48 PASADAS, 0 FALLIDAS
+======================================================
+
+[Comprobación 2: scripts/verify-ux04.ts]
+60 de 60 pruebas superadas (0 fallidas).
+
+[Comprobación 3: scripts/verify-ux02.ts]
+35 de 35 pruebas superadas (0 fallidas).
+
+[Comprobación 4: scripts/verify-ux03.ts]
+38 de 38 pruebas superadas (0 fallidas).
+
+[Comprobación 5: npm run lint (tsc --noEmit)]
+0 errores.
+
+[Comprobación 6: npm run build]
+Build exitoso en 311ms con 19 micrositios pre-renderizados.
+
+3. ARCHIVOS INCLUIDOS EN ESTE ZIP:
+- src/utils/cardHelpers.ts (Implementación completa y definitiva)
+- scripts/verify-ux05.ts (Suite completa con fixtures A-G)
+- src/components/DigitalCard.tsx (Componente reactivo con flujo vertical sin tabs)
+- src/utils/exportHtml.ts (Generador estático coherente)
+- CHANGES_UX05.diff (Diff limpio de modificaciones)
+- 15 capturas de pantalla PNG generadas con Google Chrome Headless
+- NOTA_DE_CIERRE_UX05.txt (Este documento)
+

@@ -1,6 +1,8 @@
 import { ParticipantProfile } from '../types/card';
 import { generateVCardString } from './vcard';
 import { formatVideoEmbedUrl } from './video';
+import { parsePhoneNumber } from './phone';
+import { normalizeNetworkingTarget, resolvePrimaryAction, shouldShowPhysicalLocation, getDeduplicatedLinks } from './cardHelpers';
 
 /**
  * Escapes HTML characters to prevent XSS in generated static documents.
@@ -30,13 +32,14 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
     profile.themeKey === 'personal' ? '#ac3400' : '#0f172a'
   );
 
-  const cleanPhone = profile.phone.replace(/[^0-9]/g, '');
+  const parsedPhone = parsePhoneNumber(profile.phone);
+  const cleanPhone = parsedPhone.waDigits || profile.phone.replace(/[^0-9]/g, '');
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
     profile.whatsappCustomMessage || `Hola ${profile.shortName || profile.name}, vi tu tarjeta digital y me gustaría conectar.`
   )}`;
 
   const solutionsHtml = (profile.solutions || []).map((s, idx) => {
-    const hasFramework = Boolean(s.problem || s.solution);
+    const hasFramework = Boolean(s.problem || s.solution || s.intervention);
     const itemMsg = encodeURIComponent(
       s.ctaMessage || `Hola ${profile.shortName || profile.name}, vi el caso de "${s.title}" en tu tarjeta y me interesa resolver una necesidad similar.`
     );
@@ -44,44 +47,121 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
 
     return `
     <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:${primaryColor}15; color:${primaryColor}; font-weight:700; font-size:12px;">0${idx + 1}</span>
-        <h4 style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">${escapeHtml(s.title)}</h4>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:${primaryColor}15; color:${primaryColor}; font-weight:700; font-size:12px;">0${idx + 1}</span>
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">${escapeHtml(s.title)}</h4>
+        </div>
+        ${s.type && s.type !== 'sin_clasificar' ? `
+          <span style="font-size:10px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:12px; background:${s.type === 'caso' ? '#e0f2fe' : '#f0fdf4'}; color:${s.type === 'caso' ? '#0369a1' : '#15803d'};">
+            ${s.type === 'caso' ? 'Caso Documentado' : 'Solución Ofrecida'}
+          </span>
+        ` : ''}
       </div>
       ${hasFramework ? `
         ${s.problem ? `
           <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:10px; padding:8px 12px; margin-bottom:8px;">
-            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#b45309; letter-spacing:0.5px; margin-bottom:3px;">¿Cómo ayudamos?</div>
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#b45309; letter-spacing:0.5px; margin-bottom:3px;">
+              ${s.type === 'caso' ? 'Situación Inicial • Contexto' : '¿Cómo ayudamos? / Reto'}
+            </div>
             <div style="font-size:12px; color:#451a03; line-height:1.4;">${escapeHtml(s.problem)}</div>
+          </div>
+        ` : ''}
+        ${s.intervention ? `
+          <div style="background:#eff6ff; border:1px solid #dbeafe; border-radius:10px; padding:8px 12px; margin-bottom:8px;">
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#1d4ed8; letter-spacing:0.5px; margin-bottom:3px;">
+              ${s.type === 'caso' ? 'Qué se hizo • Intervención' : 'Intervención y Proceso'}
+            </div>
+            <div style="font-size:12px; color:#1e3a8a; line-height:1.4;">${escapeHtml(s.intervention)}</div>
+          </div>
+        ` : ''}
+        ${s.scope ? `
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; margin-bottom:8px;">
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#475569; letter-spacing:0.5px; margin-bottom:3px;">Alcance y Entregables</div>
+            <div style="font-size:12px; color:#334155; line-height:1.4;">${escapeHtml(s.scope)}</div>
           </div>
         ` : ''}
         ${s.solution ? `
           <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:10px; padding:8px 12px; margin-bottom:10px;">
-            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#0f766e; letter-spacing:0.5px; margin-bottom:3px;">¿Cómo se resolvió?</div>
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#0f766e; letter-spacing:0.5px; margin-bottom:3px;">
+              ${s.type === 'caso' ? 'Resultado Documentado • Qué cambió' : '¿Cómo se resolvió? / Avance'}
+            </div>
             <div style="font-size:12px; color:#134e4a; line-height:1.4;">${escapeHtml(s.solution)}</div>
+          </div>
+        ` : ''}
+        ${s.evidenceUrl ? `
+          <div style="margin-bottom:10px;">
+            <a href="${escapeHtml(s.evidenceUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:11px; font-weight:600; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+              <span>📄 ${escapeHtml(s.evidenceLabel || 'Ver evidencia o entregable')} ↗</span>
+            </a>
           </div>
         ` : ''}
       ` : `
         <p style="margin:0 0 10px 0; font-size:13px; color:#475569; line-height:1.5;">${escapeHtml(s.desc)}</p>
       `}
       <a href="${itemWaUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; padding:8px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; text-decoration:none; font-size:11px; font-weight:700; color:#15803d;">
-        <span>💬 ${escapeHtml(s.ctaText || '¿Tienes una necesidad similar? Resolver reto')}</span>
+        <span>💬 ${escapeHtml(s.ctaText || (s.type === 'caso' ? 'Consultar caso similar' : '¿Tienes una necesidad similar? Resolver reto'))}</span>
         <span>→</span>
       </a>
     </div>
     `;
   }).join('');
 
-  const alliancesHtml = (profile.networkingTargets || []).map((t) => `
-    <div style="display:flex; align-items:flex-start; gap:10px; padding:12px; background:#f1f5f9; border-radius:12px; margin-bottom:8px;">
-      <span style="color:#059669; font-size:16px; font-weight:bold; line-height:1;">✓</span>
-      <span style="font-size:13px; color:#334155; line-height:1.4;">${escapeHtml(t)}</span>
+  const processStepsHtml = (profile.processSteps || []).map((step, idx) => `
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:8px; display:flex; align-items:flex-start; gap:10px;">
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:${primaryColor}15; color:${primaryColor}; font-weight:800; font-size:11px; flex-shrink:0; margin-top:1px;">0${step.step || idx + 1}</span>
+      <div style="flex:1;">
+        <h5 style="margin:0 0 3px 0; font-size:13px; font-weight:700; color:#1e293b;">${escapeHtml(step.title)}</h5>
+        <p style="margin:0; font-size:11.5px; color:#475569; line-height:1.4;">${escapeHtml(step.desc)}</p>
+        ${step.expectation ? `
+          <div style="display:inline-block; margin-top:5px; padding:2px 8px; border-radius:6px; background:#e2e8f0; font-size:10px; font-weight:600; color:#334155;">
+            ⏱ ${escapeHtml(step.expectation)}
+          </div>
+        ` : ''}
+      </div>
     </div>
   `).join('');
 
-  const linksHtml = (profile.links || []).map((l) => `
-    <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:between; padding:14px 16px; background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; text-decoration:none; margin-bottom:8px; transition:transform 0.15s, border-color 0.15s;">
-      <span style="font-size:14px; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:10px;">
+  const alliancesHtml = (profile.networkingTargets || []).map((rawTarget) => {
+    const item = normalizeNetworkingTarget(rawTarget);
+    return `
+    <div style="padding:12px; background:#f1f5f9; border-radius:12px; margin-bottom:8px;">
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <span style="color:#059669; font-size:16px; font-weight:bold; line-height:1;">✓</span>
+        <div style="font-size:13px; font-weight:600; color:#1e293b; line-height:1.4;">${escapeHtml(item.target)}</div>
+      </div>
+      ${item.purpose ? `
+        <div style="font-size:11px; color:#475569; margin-top:4px; padding-left:24px;">
+          <strong style="color:#0f766e;">Propósito:</strong> ${escapeHtml(item.purpose)}
+        </div>
+      ` : ''}
+      ${item.contribution ? `
+        <div style="font-size:11px; color:#475569; margin-top:2px; padding-left:24px;">
+          <strong style="color:#b45309;">Aportación:</strong> ${escapeHtml(item.contribution)}
+        </div>
+      ` : ''}
+    </div>
+    `;
+  }).join('');
+
+  const testimonialsHtml = (profile.testimonials || []).map((testi) => `
+    <div style="padding:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:10px;">
+      ${testi.stars ? `
+        <div style="color:#eab308; font-size:13px; margin-bottom:4px;">${'★'.repeat(Math.min(5, Math.max(1, Math.round(testi.stars))))}</div>
+      ` : ''}
+      <p style="font-size:13px; font-style:italic; color:#1e293b; margin:0 0 8px 0; line-height:1.4;">"${escapeHtml(testi.comment)}"</p>
+      <div style="font-size:11px; font-weight:700; color:#334155;">
+        ${escapeHtml(testi.name)}${testi.role ? ` • <span style="font-weight:400; color:#64748b;">${escapeHtml(testi.role)}</span>` : ''}${testi.company ? ` • <span style="font-weight:400; color:#64748b;">${escapeHtml(testi.company)}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  const primaryActionForLinks = resolvePrimaryAction(profile);
+  const dedupedLinks = getDeduplicatedLinks(profile.links, primaryActionForLinks, profile);
+
+  const linksHtml = dedupedLinks.map((l) => `
+    <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; text-decoration:none; margin-bottom:8px; transition:transform 0.15s, border-color 0.15s;">
+      <span style="font-size:13.5px; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:10px; white-space:normal; line-height:1.35;">
         <span style="font-size:18px;">🔗</span>
         ${escapeHtml(l.label)}
       </span>
@@ -288,8 +368,8 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
     <div class="card-body">
       <h1 class="person-name">${escapeHtml(profile.name)}</h1>
       <p class="person-role">${escapeHtml(profile.role)}</p>
-      <p class="person-company">${escapeHtml(profile.company)}${profile.showLocation !== false && profile.city ? ` • ${escapeHtml(profile.city)}` : (profile.showLocation === false ? ' • Servicio en línea' : '')}</p>
-      ${profile.showLocation !== false && profile.address ? `
+      <p class="person-company">${escapeHtml(profile.company)}${shouldShowPhysicalLocation(profile) && profile.city ? ` • ${escapeHtml(profile.city)}` : (!shouldShowPhysicalLocation(profile) ? (profile.locationMode === 'remoto' ? ' • Modalidad Remota' : ' • Servicio en línea') : '')}</p>
+      ${shouldShowPhysicalLocation(profile) && profile.address ? `
         <div style="margin-top:6px; margin-bottom:4px; font-size:12px; color:#475569; background:#f1f5f9; padding:6px 10px; border-radius:8px; display:inline-block;">
           📍 ${escapeHtml(profile.address)} ${profile.googleMapsUrl ? `<a href="${escapeHtml(profile.googleMapsUrl)}" target="_blank" rel="noopener noreferrer" style="color:${primaryColor}; font-weight:700; text-decoration:underline; margin-left:4px;">Ver mapa</a>` : ''}
         </div>
@@ -300,34 +380,55 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
         <span>${escapeHtml(profile.status)}</span>
       </div>
 
-      <!-- Action Buttons -->
-      <a href="${vcardDataUri}" download="${escapeHtml(profile.publicId)}.vcf" class="btn-main btn-vcard">
-        <span>💾</span>
-        <span>Guardar en Contactos</span>
-      </a>
-
-      <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="btn-main btn-whatsapp">
-        <span>💬</span>
-        <span>Enviar WhatsApp</span>
-      </a>
-
-      <div class="quick-actions">
-        <a href="tel:${escapeHtml(profile.phone)}" class="btn-secondary">
-          <span>📞</span>
-          <span>Llamar</span>
-        </a>
-        <a href="mailto:${escapeHtml(profile.email)}" class="btn-secondary">
-          <span>✉️</span>
-          <span>Correo</span>
-        </a>
-      </div>
-
       ${profile.valueProp ? `
-        <div class="section-title">Propuesta de Valor</div>
-        <div class="value-prop-box">
-          "${escapeHtml(profile.valueProp)}"
+        <div class="value-prop-box" style="margin-bottom:16px;">
+          ${escapeHtml(profile.valueProp)}
         </div>
       ` : ''}
+
+      <!-- Action Buttons: Primary coherente + Secondary (Guardar en Contactos) -->
+      ${(() => {
+        const primary = resolvePrimaryAction(profile);
+        const iconSymbol =
+          primary.actionType === 'whatsapp' ? '💬' :
+          primary.actionType === 'calendar' ? '📅' :
+          primary.actionType === 'phone' ? '📞' :
+          primary.actionType === 'email' ? '✉️' : '🔗';
+
+        const showAltPhone = parsedPhone.isValid && primary.actionType !== 'phone';
+        const showAltEmail = Boolean(profile.email && profile.email.includes('@')) && primary.actionType !== 'email';
+
+        return `
+          ${primary.enabled && primary.isValid ? `
+            <a href="${escapeHtml(primary.href)}" ${primary.isExternal ? 'target="_blank" rel="noopener noreferrer"' : ''} class="btn-main ${primary.actionType === 'whatsapp' ? 'btn-whatsapp' : 'btn-vcard'}">
+              <span>${iconSymbol}</span>
+              <span style="white-space:normal; text-align:center; line-height:1.35;">${escapeHtml(primary.label)}</span>
+            </a>
+          ` : ''}
+
+          <a href="${vcardDataUri}" download="${escapeHtml(profile.publicId)}.vcf" class="btn-secondary" style="margin-bottom: 10px; width: 100%; box-sizing: border-box;">
+            <span>💾</span>
+            <span>Guardar en Contactos</span>
+          </a>
+
+          ${(showAltPhone || showAltEmail) ? `
+            <div class="quick-actions">
+              ${showAltPhone ? `
+                <a href="tel:${escapeHtml(profile.phone)}" class="btn-secondary">
+                  <span>📞</span>
+                  <span>Llamar</span>
+                </a>
+              ` : ''}
+              ${showAltEmail ? `
+                <a href="mailto:${escapeHtml(profile.email)}" class="btn-secondary">
+                  <span>✉️</span>
+                  <span>Correo</span>
+                </a>
+              ` : ''}
+            </div>
+          ` : ''}
+        `;
+      })()}
 
       ${profile.introVideo?.url ? `
         <div class="section-title">${escapeHtml(profile.introVideo.title || 'Video de Presentación')}</div>
@@ -340,23 +441,71 @@ export function generateStandaloneCardHtml(profile: ParticipantProfile): string 
         </div>
       ` : ''}
 
-      ${solutionsHtml ? `
-        <div class="section-title">Servicios y Especialidades</div>
-        <div>${solutionsHtml}</div>
-      ` : ''}
+      ${(() => {
+        const isCollaborationOriented =
+          profile.primaryAction?.actionType === 'collaboration' ||
+          profile.professionalProfile === 'institucional_publico' ||
+          profile.professionalProfile === 'ejecutivo_directivo';
 
-      ${alliancesHtml ? `
-        <div class="section-title">Alianzas Estratégicas Buscadas</div>
-        <div>${alliancesHtml}</div>
-      ` : ''}
+        if (isCollaborationOriented) {
+          return `
+            ${solutionsHtml ? `
+              <div class="section-title">Servicios, Programas y Casos</div>
+              <div>${solutionsHtml}</div>
+            ` : ''}
 
-      ${linksHtml ? `
-        <div class="section-title">Enlaces Directos</div>
-        <div>${linksHtml}</div>
-      ` : ''}
+            ${alliancesHtml ? `
+              <div class="section-title">Alianzas y Vinculación Estratégica</div>
+              <div>${alliancesHtml}</div>
+            ` : ''}
+
+            ${processStepsHtml ? `
+              <div class="section-title">Cómo se empieza • Proceso de vinculación</div>
+              <div>${processStepsHtml}</div>
+            ` : ''}
+
+            ${testimonialsHtml ? `
+              <div class="section-title">Testimonios y Respaldos</div>
+              <div>${testimonialsHtml}</div>
+            ` : ''}
+
+            ${linksHtml ? `
+              <div class="section-title">Recursos y Documentos de Apoyo</div>
+              <div>${linksHtml}</div>
+            ` : ''}
+          `;
+        }
+
+        return `
+          ${solutionsHtml ? `
+            <div class="section-title">Soluciones y Casos Documentados</div>
+            <div>${solutionsHtml}</div>
+          ` : ''}
+
+          ${processStepsHtml ? `
+            <div class="section-title">Cómo se empieza • Proceso de trabajo</div>
+            <div>${processStepsHtml}</div>
+          ` : ''}
+
+          ${testimonialsHtml ? `
+            <div class="section-title">Testimonios y Recomendaciones</div>
+            <div>${testimonialsHtml}</div>
+          ` : ''}
+
+          ${linksHtml ? `
+            <div class="section-title">Recursos Útiles para Decidir</div>
+            <div>${linksHtml}</div>
+          ` : ''}
+
+          ${alliancesHtml ? `
+            <div class="section-title">Alianzas y Vinculación Estratégica</div>
+            <div>${alliancesHtml}</div>
+          ` : ''}
+        `;
+      })()}
 
       <div class="footer-note">
-        Tarjeta Digital • ${escapeHtml(profile.name)} • iaconkris.com
+        Tecnología de Tarjetas Digitales • Tribu Creativa QRO • RedConecta MX
       </div>
     </div>
   </div>

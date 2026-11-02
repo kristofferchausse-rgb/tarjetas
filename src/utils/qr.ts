@@ -37,7 +37,10 @@ export function encodeCardPayload(profile: ParticipantProfile): string {
       sl: profile.showLocation,
       lm: profile.locationMode,
       adr: profile.address,
-      gmu: profile.googleMapsUrl
+      gmu: profile.googleMapsUrl,
+      pp: profile.professionalProfile,
+      cf: profile.customFields,
+      vf: profile.verified
     };
     return encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(compact)))));
   } catch (err) {
@@ -69,7 +72,9 @@ export function decodeCardPayload(encoded: string): ParticipantProfile | null {
       statusActive: true,
       avatarUrl: c.a || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
       avatarAlt: `Foto de ${c.n}`,
-      verified: true,
+      verified: c.vf !== undefined ? c.vf : false,
+      professionalProfile: c.pp || 'profesional_independiente',
+      customFields: c.cf || undefined,
       themeKey: c.t || 'ejecutivo',
       bannerTheme:
         c.t === 'negocio'

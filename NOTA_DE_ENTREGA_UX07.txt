@@ -1,0 +1,198 @@
+================================================================================
+TRIBU CREATIVA QRO • REDCONECTA MX
+TARJETAS DIGITALES INTELIGENTES — FASE UX07
+NOTA DE ENTREGA: MEDICIÓN CLARA Y RESULTADOS DE SEGUIMIENTO
+================================================================================
+Fecha de Entrega: 2026-11-01
+Entorno: Local revisable (Vite + React + TypeScript)
+Estado: UX07 local lista para revisión
+
+--------------------------------------------------------------------------------
+1. RESUMEN EJECUTIVO
+--------------------------------------------------------------------------------
+La fase UX07 resuelve integralmente la honestidad en la medición, consistencia de
+persistencia local y presentación clara del seguimiento comercial en el Panel
+Ejecutivo Privado (ClientStatsView) de Tarjetas Digitales Inteligentes:
+
+- Cierre de consistencia en handleDeleteLead: ahora espera la confirmación
+  booleana de deleteLead(profileId, leadId). Si falla la escritura en
+  localStorage, la fila se conserva, los contadores/filtros no se descuentan
+  falsamente y se notifica al usuario con un mensaje de error explícito.
+- Diccionario de Métricas e Inventario riguroso: cada cifra explica con precisión
+  qué cuenta, cómo se origina y qué límites tiene (qué NO demuestra).
+- Eliminación de datos falsos: se removió el fallback artificial que inyectaba
+  1 vista y 1 escaneo QR en perfiles sin datos. Ahora los perfiles nuevos
+  muestran 0 vistas, 0 QR, acciones por 100 vistas como "—" y una etiqueta clara
+  de "Sin datos registrados".
+- Métrica "Acciones por cada 100 vistas": sustituye a la ambigua "conversión
+  real", calculando con exactitud la relación entre acciones directas de
+  interacción (vCard, WhatsApp, enlaces) y aperturas de tarjeta, permitiendo
+  superar 100 de forma honesta si un visitante realiza múltiples acciones.
+- Resultados Registrados por Ti: nuevo módulo y campos en la ficha del contacto
+  para registrar de forma opcional y editable logros tangibles
+  (venta_confirmada, cita_confirmada, colaboracion_acordada, solicitud_atendida,
+  otro) con fecha y nota, independientes de las etapas del embudo comercial.
+- Reordenación visual enfocada en la acción:
+  1) Resumen compacto de seguimientos de hoy y vencidos (alertas superiores).
+  2) Buzón de prospectos y próximo paso con insignias de resultado.
+  3) Resultados registrados por el titular (chips de conteo por tipo).
+  4) Actividad registrada de la tarjeta y métricas honestas.
+  5) Herramientas secundarias de cierre & difusión al fondo.
+- Plan básico verificado: en perfiles sin Meeting Intelligence (hasMeetingIntelligence: false),
+  no se muestran insignias de AI Copilot ni pestañas/módulos de grabación de audio.
+
+--------------------------------------------------------------------------------
+2. DICCIONARIO DE MÉTRICAS (INVENTARIO Y DEFINICIONES)
+--------------------------------------------------------------------------------
+| Métrica / Evento          | Momento de Registro                     | Fuente                 | Ámbito / Persistencia      | Etiqueta Visible             | Definición Exacta                                                       | Qué NO Demuestra                                                      |
+|---------------------------|-----------------------------------------|------------------------|-----------------------------|------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| Aperturas de la Tarjeta   | Carga exitosa de /c/:slug               | localStorage cliente   | Histórico acumulado local   | Aperturas de Tarjeta         | Conteo de eventos de carga del micrositio en este navegador            | NO demuestra personas únicas ni lecturas completas del contenido      |
+| Aperturas por Código QR   | Carga con parámetro ?src=qr u origen QR | localStorage cliente   | Histórico acumulado local   | [N] con origen QR           | Conteo de cargas donde el enlace contenía el origen explícito de QR     | NO demuestra escaneo físico de tarjeta; mostrar el QR != escaneo      |
+| Descargas de Contacto     | Clic en botón "Guardar Contacto" / vCard| localStorage cliente   | Histórico acumulado local   | Descargas de Contacto        | Conteo de veces que se generó y descargó el archivo de contacto .vcf    | NO demuestra que el usuario haya guardado el contacto en su agenda    |
+| Intentos a WhatsApp       | Clic en botón de chat / enlace WhatsApp | localStorage cliente   | Histórico acumulado local   | Intentos a WhatsApp         | Conteo de clics hacia el enlace wa.me o API de WhatsApp                 | NO demuestra mensajes enviados, entregados ni conversaciones iniciadas|
+| Acciones / 100 Vistas     | Cálculo dinámico sobre aperturas > 0    | Métricas combinadas    | Ratio calculado             | Acciones / 100 Vistas        | (Acciones directas totales / Vistas) * 100; "—" si vistas == 0          | NO es una tasa de conversión tradicional de personas ni mide ROI      |
+| Contactos Capturados      | Guardado exitoso de formulario local/rem| LocalStorage / Lead API| Lista persistida            | Buzón de Prospectos          | Número de personas que enviaron sus datos mediante el modal público     | NO equivale a ventas cerradas ni a citas confirmadas automáticas      |
+| Resultados Registrados    | Declaración manual del titular en ficha | localStorage titular   | Lista de contactos          | Resultados Registrados por Ti| Acuerdos confirmados expresamente por el titular por categoría          | NO son conversiones generadas por algoritmos ni automáticas           |
+
+--------------------------------------------------------------------------------
+3. CÁLCULOS Y FÓRMULAS
+--------------------------------------------------------------------------------
+Fórmula de Acciones por cada 100 Vistas:
+  accionesDirectas = vcardDownloads + whatsappClicks + callClicks + emailClicks + calendarClicks + linkClicks
+  Si vistas > 0:
+    accionesPor100Vistas = round((accionesDirectas / vistas) * 100)
+  Si vistas == 0:
+    accionesPor100Vistas = "—"
+
+Características de diseño matemático y honestidad:
+- No divide entre cero: cuando no hay vistas registradas, devuelve "—" de forma
+  limpia y segura.
+- Puede superar 100: si una sola visita genera 1 descarga de vCard, 1 clic a
+  WhatsApp y 1 clic a catálogo, genera 3 acciones para 1 vista (300 acciones por
+  cada 100 vistas). Se explica con claridad en la nota al pie de la tarjeta.
+- No mezcla inventario con eventos: los prospectos capturados (leads) no se suman
+  a los clics de interacción para inflar el ratio.
+- Cero ROI inventado: no se atribuyen ingresos monetarios ficticios ni tasas de
+  éxito no comprobadas.
+
+--------------------------------------------------------------------------------
+4. FUENTES Y PERIODOS HONESTOS
+--------------------------------------------------------------------------------
+El panel incorpora una insignia de fuente de datos en la cabecera del bloque de
+actividad:
+- "Demostración Sintética": perfiles de prueba (demo-*) o con leads de muestra
+  cargados (isDemo: true).
+- "Registrado en este dispositivo": perfiles con actividad real registrada en el
+  almacenamiento local del navegador.
+- "Sin datos registrados": perfiles nuevos sin aperturas ni interacciones,
+  manteniendo en 0 todas las métricas y sin inyectar datos artificiales.
+
+Privacidad verificada:
+Las métricas de actividad no contienen nombres, números telefónicos, correos,
+notas privadas ni PINs de seguridad.
+
+--------------------------------------------------------------------------------
+5. RESULTADOS REGISTRADOS POR EL TITULAR (PROGRESO Y ACUERDOS)
+--------------------------------------------------------------------------------
+Tipos de resultado disponibles en la ficha del prospecto (LeadDetailModal):
+1. Venta Confirmada (`venta_confirmada`): compra o contratación cerrada.
+2. Cita Confirmada (`cita_confirmada`): reunión agendada y aceptada.
+3. Colaboración Acordada (`colaboracion_acordada`): alianza o proyecto conjunto.
+4. Solicitud Atendida (`solicitud_atendida`): petición resuelta satisfactoriamente.
+5. Otro Resultado (`otro`): cualquier otro hito declarado por el titular.
+
+Reglas de persistencia y verdad:
+- Cada resultado incluye tipo, etiqueta descriptiva, fecha de registro y nota opcional.
+- Es editable y removible (botón "Quitar Resultado" restaura el estado sin resultado).
+- Independencia total del pipeline: un contacto puede tener estado "contactado"
+  con una "cita_confirmada", o estar "cerrado" sin venta registrada. La interfaz
+  no autogenera ventas al cambiar de etapa.
+
+--------------------------------------------------------------------------------
+6. EVIDENCIA VISUAL GENERADA (5 CAPTURAS HEADLESS CHROME)
+--------------------------------------------------------------------------------
+Todas las capturas fueron tomadas mediante Chrome Headless automatizado con CDP,
+verificando aserciones estrictas del DOM antes de cada captura (fallan si el escenario no es correcto):
+1. `ux07-panel-datos-demo.png` (480x980, 221.7 KB):
+   Muestra el bloque de Actividad Registrada claramente etiquetado como
+   "Demostración Sintética", las 4 tarjetas de métricas honestas (Aperturas, Descargas,
+   Intentos a WhatsApp, Acciones / 100 Vistas) y la nota aclaratoria de mediciones locales.
+2. `ux07-buzon-movil-fila.png` (390x844, 189.6 KB):
+   Vista móvil en 390px mostrando la barra compacta de alertas superiores
+   (Vencidos, Hoy, Sin paso, Todos) sin truncamiento del botón "Sin paso" y una fila
+   completa de prospecto con su banner de próximo paso e insignia de resultado registrado.
+3. `ux07-resultados-registrados.png` (480x900, 191.7 KB):
+   Muestra la sección "Resultados Registrados por Ti" con los chips de conteo por
+   tipo de logro adaptados al arquetipo profesional y el descargo editorial.
+4. `ux07-estado-sin-datos.png` (480x980, 215.7 KB):
+   Comprueba el perfil en estado cero: 0 aperturas, 0 QR, ratio de acciones como "—"
+   y la insignia neutral "Sin datos registrados", respetando la lista deliberadamente vacía [].
+5. `ux07-plan-basico-sin-audios.png` (1024x800, 257.3 KB):
+   Vista de escritorio de perfil de plan básico (Jorge Herrera, hasMeetingIntelligence: false)
+   con ausencia verificada en el DOM de la insignia "AI Copilot" y de módulos/pestañas de audio.
+
+--------------------------------------------------------------------------------
+7. PRUEBAS DETERMINISTAS EJECUTADAS
+--------------------------------------------------------------------------------
+Suite específica UX07 (`scripts/verify-ux07.ts`):
+- 47 casos de prueba deterministas ejecutados.
+- 47 / 47 casos APROBADOS (100% de éxito).
+
+Bloques cubiertos:
+- Bloque 1: Aislar demostraciones y respetar el vacío ([]).
+  * Distingue ausencia inicial de lista deliberadamente vaciada []; no la repuebla.
+  * seedMockLeads restringido exclusivamente a perfiles demo (rechaza perfiles reales).
+- Bloque 2: Fuentes y conteos coherentes de actividad (`metricsCalculations.ts`).
+  * hasCardActivity evalúa los 10 contadores reales (llamadas, emails, videos, etc.).
+  * Si un perfil solo tiene llamadas o video, no dice falsamente "Sin datos registrados".
+  * isSynthetic: true resuelve "synthetic"; eventos locales resuelven "local".
+- Bloque 3: Separación de procedencia CRM y aislamiento de mocks.
+  * Prospectos isDemo no inflan los resultados de un titular real.
+  * Perfiles demo marcan explícitamente el resumen con isDemoScope: true.
+- Bloque 4: Un solo significado para cada resultado (cita agendada y aceptada).
+  * cita_confirmada describe cita/reunión agendada y aceptada, nunca completada/realizada.
+  * Verificado en los 7 arquetipos reales de ProfessionalProfileType en card.ts.
+  * Adaptación limpia cuando outcome.label está vacío (usa nombre adaptado del tipo).
+- Bloque 5: Instrumentación segura y privacidad de eventos.
+  * Teléfonos, correos y PINs son eliminados de los labels de eventos de telemetría.
+  * Deduplicación técnica inmediata (< 800ms) de re-invocaciones rápidas.
+  * Apertura de modal QR no genera un evento falso de escaneo de QR.
+
+Suites de regresión de fases anteriores:
+- UX06 (`scripts/verify-ux06.ts`): 67 / 67 pruebas superadas.
+- UX05 (`scripts/verify-ux05.ts`): 48 / 48 pruebas superadas.
+- UX04 (`scripts/verify-ux04.ts`): 60 / 60 pruebas superadas.
+- Build de producción: 0 errores de tipo, 0 advertencias de build bloqueantes.
+
+--------------------------------------------------------------------------------
+8. INSTRUCCIONES DE REPRODUCCIÓN LOCAL
+--------------------------------------------------------------------------------
+1. Instalar y compilar:
+   $ npm run build
+
+2. Ejecutar la suite de pruebas UX07:
+   $ npx tsx scripts/verify-ux07.ts
+
+3. Ejecutar las suites de regresión:
+   $ npx tsx scripts/verify-ux06.ts
+   $ npx tsx scripts/verify-ux05.ts
+
+4. Re-generar las 5 capturas en vivo:
+   $ node scripts/generate-ux07-screenshots.mjs
+
+5. Iniciar el servidor local para inspección visual:
+   $ npm run dev
+   - Panel demo Clara Navarro (Pro): http://localhost:5173/c/demo-clara-navarro/stats
+   - Panel demo Jorge Herrera (Básico): http://localhost:5173/c/demo-jorge-herrera/stats
+   - PIN demo para desbloqueo si se solicita: 1234 (o sesión directa /stats?tab=crm)
+
+--------------------------------------------------------------------------------
+9. REGISTRO DE DECISIONES Y PENDIENTES CONSERVADOS
+--------------------------------------------------------------------------------
+- Fase UX03B (Captura remota, autenticación Firebase, reglas Firestore y cola
+  offline): Aplazada formalmente por decisión del usuario; se mantiene registrada
+  y no modificada en esta entrega.
+- Exportación HTML (UX05): Los ajustes de deduplicación de enlaces se mantuvieron
+  intactos con parámetros funcionales preservados.
+================================================================================
+

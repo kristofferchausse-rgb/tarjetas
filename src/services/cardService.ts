@@ -83,7 +83,9 @@ export async function saveCloudProfile(profile: ParticipantProfile): Promise<boo
   try {
     const cleanId = profile.publicId.trim().toLowerCase();
     const docRef = doc(db, COLLECTION_NAME, cleanId);
-    const sanitized = sanitizeForFirestore(profile);
+    // Explicitly separate private credentials and operator notes from public profile document
+    const { pin, operatorContext, ...publicProfile } = profile;
+    const sanitized = sanitizeForFirestore(publicProfile);
     await setDoc(docRef, sanitized, { merge: true });
     return true;
   } catch (error) {
@@ -108,13 +110,15 @@ export async function deleteCloudProfile(publicId: string): Promise<boolean> {
 }
 
 /**
- * Seed initial profiles into Firestore if collection is empty
+ * Seed initial profiles into Firestore if collection is empty or missing key demo profiles
  */
 export async function seedInitialProfilesIfEmpty(): Promise<void> {
   try {
     const existing = await getAllCloudProfiles();
-    if (!existing || existing.length === 0) {
-      for (const p of INITIAL_PROFILES) {
+    const existingMap = new Set((existing || []).map((p) => p.publicId.trim().toLowerCase()));
+    
+    for (const p of INITIAL_PROFILES) {
+      if (!existingMap.has(p.publicId.trim().toLowerCase())) {
         await saveCloudProfile(p);
       }
     }

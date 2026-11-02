@@ -1,0 +1,150 @@
+================================================================================
+TARJETAS DIGITALES INTELIGENTES • TRIBU CREATIVA QRO / REDCONECTA MX
+NOTA DE ENTREGA — CIERRE FUNCIONAL DE UX06: SEGUIMIENTO LOCAL Y EVIDENCIA CORRECTA
+================================================================================
+Fecha de Emisión: 2026-11-01
+Entorno: Local revisable (Vite / React 19 / TypeScript 5)
+Estado del Módulo UX06: CORREGIDO Y LISTO PARA REVISIÓN
+Compromiso de Alcance: Sin despliegue a producción, sin modificación de backend/reglas.
+
+--------------------------------------------------------------------------------
+1. RESUMEN EJECUTIVO Y ESTADO DE COMPROBACIONES
+--------------------------------------------------------------------------------
+Se implementó y verificó la corrección integral de la fase UX06 (Mini-CRM: Notas y
+Próximo Paso) tras los hallazgos reportados en la revisión previa:
+
+A. Pruebas Automáticas:
+   - Suite UX 06 (scripts/verify-ux06.ts): 67 / 67 pruebas superadas (100%).
+   - Regresión UX 05 (scripts/verify-ux05.ts): 48 / 48 pruebas superadas (100%).
+   - Regresión UX 04 (scripts/verify-ux04.ts): 60 / 60 pruebas superadas (100%).
+   - Regresión UX 03 (scripts/verify-ux03.ts): 38 / 38 pruebas superadas (100%).
+   - Regresión UX 02 (scripts/verify-ux02.ts): 35 / 35 pruebas superadas (100%).
+   Total: 248 pruebas unitarias y de integración superadas sin una sola falla.
+
+B. Compilación y Tipos:
+   - vite build & tsc: 0 errores, generación estática de 19 micrositios limpia.
+
+C. Registro de Pendientes Aplazados (Acorde a instrucciones previas):
+   - UX03B (cierre técnico de backend, reglas de seguridad de Firestore, validación
+     de PIN remoto con Firebase Auth, cola de sincronización cloud): Permanece
+     formalmente aplazada por decisión del usuario.
+   - UX05: Se mantienen registrados los pendientes de revisión previa (agenda/web en
+     exportación estática en casos extremos, normalización formal de URLs relativas y
+     consistencia editorial de microcopys en recursos).
+
+--------------------------------------------------------------------------------
+2. DETALLE DE CORRECCIONES IMPLEMENTADAS
+--------------------------------------------------------------------------------
+
+1. Guardado Local Verídico y Manejo Real de Excepciones:
+   - saveLocalLeads en src/services/leadService.ts ahora devuelve boolean (true en
+     escritura confirmada, false en cualquier excepción de localStorage.setItem).
+   - Se eliminó el silenciamiento de excepciones con bloques catch vacíos.
+   - updateLeadFollowUp detecta fallos reales de almacenamiento (ej. QuotaExceededError
+     o SecurityError): devuelve success: false, el mensaje exacto de error, storageTarget:
+     'local_device' y NO muta la entidad local ni falsea una confirmación cloud.
+   - Los borradores permanecen en la memoria de la interfaz para permitir reintentos.
+
+2. Contrato de Edición, Borradores y Descarte en LeadDetailModal:
+   - Se corrigió la violación de React Rules of Hooks: todos los hooks (useState,
+     useEffect) se posicionaron incondicionalmente en la cima del componente antes de
+     cualquier return temprano.
+   - Aislamiento estricto de borradores: los borradores solo se reinician cuando cambia
+     activeLeadId (cambio de contacto). Si el usuario edita una nota y guarda un
+     próximo paso (o viceversa), el borrador de la otra sección NO se resetea.
+   - Descarte con confirmación: si el usuario intenta cerrar la ficha teniendo notas o
+     acciones sucias (isNotesDirty || isActionDirty), el sistema solicita confirmación
+     expresa antes de abandonar los cambios.
+   - Manejo de fallos en interfaz: ante fallo de persistencia, se muestra storageError,
+     se preserva el borrador en pantalla y se revierte cualquier mutación optimista.
+
+3. Contrato Limpio de Fecha y Hora del Próximo Paso:
+   - Omitir (undefined): conserva la fecha/hora existente sin tocarla.
+   - Limpieza expresa (null o ""): elimina la propiedad (nextActionDate/nextActionTime)
+     del registro guardado. Se añadió control "(Limpiar)" en la interfaz.
+   - Acciones completadas nunca se clasifican como 'vencido' ni como 'hoy'.
+   - Programar un nuevo paso tras completar el anterior archiva el paso previo en
+     nextActionHistory con fecha y hora de cumplimiento, incluso si el nuevo paso
+     tiene un título idéntico. Se implementó deduplicación para no multiplicar el
+     historial ante reintentos.
+
+4. Adaptación Real por Arquetipo (Desacoplada de publicId):
+   - getArchetypeTerminology en src/utils/crmTerminology.ts responde a los 7 valores
+     del enum professionalProfile (profesional_independiente, comercial_asesor,
+     emprendedor_solopreneur, empresario_dueno, ejecutivo_directivo, salud,
+     institucional_publico).
+   - Cualquier perfil (sea demo o cliente real con slug propio como dr-arturo-sanchez)
+     con professionalProfile: 'salud' recibe el vocabulario y descargo de salud.
+   - Salud puramente administrativo: se eliminaron términos clínicos invasivos (ayuno,
+     estudios bioquímicos, certificados médicos); se enfoca en horarios, confirmación
+     de asistencia, recepción y vías de acceso al consultorio.
+   - Se incorporó descargo normativo visible en la interfaz para Salud ("Canal de
+     seguimiento administrativo...") e Institucional ("Canal orientador de enlace...").
+
+5. Modo Local Estricto sin Fabricación de Contactos:
+   - Si se invoca updateLeadFollowUp con un ID inexistente, devuelve inmediatamente
+     success: false y error "Contacto no encontrado", sin recurrir a getMockLeadsForProfileId
+     para fabricar contactos ficticios.
+   - deleteLead en modo local/demo elimina del almacenamiento del navegador sin
+     disparar operaciones de red deleteDoc a Firestore.
+
+6. Corrección Integral del Proceso de Captura y Evidencia Visual:
+   - Causa raíz del fallo anterior identificada y corregida: ClientStatsView.tsx tenía
+     una condición que asignaba activeModuleTab = 'meetings' por defecto si el perfil
+     contaba con hasMeetingIntelligence (lo cual aplicaba a los perfiles demo).
+   - activeModuleTab ahora se inicializa por defecto en 'crm' (salvo parámetro explícito
+     ?tab=meetings).
+   - El script scripts/generate-ux06-screenshots.mjs navega con ?tab=crm y valida en
+     el DOM la presencia de "Buzón de Prospectos & Próximos Pasos" antes de disparar
+     Page.captureScreenshot.
+   - Se configuró el perfil demo-jorge-herrera como plan básico (hasMeetingIntelligence:
+     false) para la captura de escritorio sin pestañas ni módulo de audio.
+
+--------------------------------------------------------------------------------
+3. ARCHIVOS DE EVIDENCIA VISUAL GENERADOS (Chrome Headless)
+--------------------------------------------------------------------------------
+1. ux06-clara-navarro-lista-movil.png (390x844 px, 301 KB):
+   Vista completa de Clara Navarro en móvil mostrando el Buzón de Prospectos con
+   los 4 filtros de acción rápida: Todos (5), Hoy (1), Vencidos (1), Sin próximo paso (1).
+
+2. ux06-clara-navarro-filtro-vencidos.png (390x844 px, 301 KB):
+   Vista con el filtro "Vencidos" activo; muestra el caso atrasado (Lic. Mariana Solís,
+   hace 2 días) con su indicador visual de alerta roja y fecha formateada.
+
+3. ux06-clara-navarro-ficha-detalle.png (390x844 px, 193 KB):
+   Ficha de detalle (LeadDetailModal) abierta sobre el contacto, desplegando:
+   - Sección A: Mensaje Recibido (del visitante) con contexto de interés.
+   - Sección B: Mis Notas Privadas del titular con indicativo de privacidad local.
+   - Sección C: Próximo Paso editable con fecha local, sugerencias y presets.
+   - Sección D: Generador contextual de WhatsApp.
+
+4. ux06-lucia-cardenas-lista-salud.png (390x844 px, 297 KB):
+   Vista adaptada al arquetipo de Salud (Dra. Lucía Cárdenas) con vocabulario logístico
+   administrativo de consultorio y el descargo normativo explícito contra datos clínicos.
+
+5. ux06-adriana-torres-desktop-crm.png / ux06-jorge-herrera-desktop-crm.png (1024x800 px, 367 KB):
+   Vista de escritorio en pantalla completa sobre un perfil de plan básico (Jorge Herrera),
+   mostrando el Mini-CRM con métricas ejecutivas, buscador y lista sin pestañas de audio copilot.
+
+--------------------------------------------------------------------------------
+4. INSTRUCCIONES PARA REPRODUCCIÓN LOCAL
+--------------------------------------------------------------------------------
+1. Para ejecutar las suites de pruebas automatizadas:
+   npx tsx scripts/verify-ux06.ts
+   npx tsx scripts/verify-ux05.ts
+   npx tsx scripts/verify-ux04.ts
+   npx tsx scripts/verify-ux03.ts
+   npx tsx scripts/verify-ux02.ts
+
+2. Para compilar el proyecto:
+   npm run build
+
+3. Para regenerar capturas visuales vía Chrome Headless:
+   node scripts/generate-ux06-screenshots.mjs
+
+4. Para navegar interactivamente el panel en navegador:
+   npm run dev
+   Acceder a: http://localhost:5173/c/demo-clara-navarro/stats?tab=crm (PIN: 2841)
+   Acceder a: http://localhost:5173/c/demo-lucia-cardenas/stats?tab=crm (PIN: 1472)
+   Acceder a: http://localhost:5173/c/demo-jorge-herrera/stats?tab=crm (PIN: 3091)
+================================================================================

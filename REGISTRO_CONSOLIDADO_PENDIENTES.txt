@@ -1,0 +1,156 @@
+================================================================================
+TRIBU CREATIVA QRO • REDCONECTA MX
+TARJETAS DIGITALES INTELIGENTES — REGISTRO CONSOLIDADO DE PENDIENTES Y ENTREGAS
+FECHA: 2026-11-02
+CIERRE CONJUNTO — PRIMER BLOQUE: IDENTIFICADORES Y DUPLICACIÓN
+================================================================================
+
+--------------------------------------------------------------------------------
+1. RESUMEN DEL PRIMER BLOQUE RESUELTO (IDENTIFICADORES Y DUPLICACIÓN)
+--------------------------------------------------------------------------------
+En este primer bloque se implementó y verificó con éxito la arquitectura de
+identificadores únicos, sanitización por lista blanca (allowlist) e independencia
+estructural mutacional para la duplicación de tarjetas y creación desde plantillas:
+
+1. Identificadores Únicos y Prevención de Colisiones:
+   - Funciones `generateUniqueSlug` y `generateUniqueUid` en `src/services/companyService.ts`.
+   - Verificación de colisiones contra perfiles existentes en memoria, perfiles
+     almacenados en `localStorage` y el registro de identificadores emitidos en sesión
+     (`ISSUED_PUBLIC_IDS` e `ISSUED_UIDS`).
+   - Resolución automática de colisiones con sufijos numéricos limpios (ej. `slug-2`,
+     `slug-3`, o incrementando candidatos que ya finalizan en número).
+   - Protección de palabras reservadas del sistema (`admin`, `studio`, `dashboard`,
+     `crm`, `auth`, `api`, `login`, `empresa`, `equipo`, `c`, `e`).
+   - Normalización de acentos y caracteres especiales a formato URL seguro.
+   - Comprobación en el mismo milisegundo: 100 duplicaciones y 100 altas simultáneas
+     ejecutadas en bucle síncrono generan 100 slugs y 100 UIDs absolutamente únicos.
+
+2. Duplicación Mediante Campos Permitidos de Plantilla (Allowlist & Sanitización):
+   - Función `duplicateMemberCard`:
+     * Limpieza estricta de datos personales: `name: ''`, `shortName: ''`,
+       `phone: ''`, `email: ''`, `avatarUrl: ''`, `avatarAlt: ''`.
+     * Limpieza estricta de datos fiscales: `fiscalData: undefined`.
+     * Limpieza estricta de credenciales y notas de operador: `pin: undefined`,
+       `operatorContext: undefined`.
+     * Limpieza de agenda y presentaciones personales: `calendarUrl: undefined`,
+       `customFields.bookingUrl: undefined`, `customFields.licenseId: undefined`,
+       `introVideo: undefined`.
+     * Limpieza de prueba social: `testimonials: []` (reseteado a array vacío).
+     * Limpieza de mensajes específicos: `whatsappCustomMessage: undefined`,
+       `primaryAction.customMessage: undefined`, `solution.ctaMessage: undefined`.
+     * Limpieza de enlaces sociales personales: solo preserva el sitio web corporativo
+       si existía, eliminando perfiles personales de LinkedIn, redes o mensajería.
+     * Estado inicial: estricto borrador (`published: false`, `showInDirectory: false`,
+       `verified: false` — la verificación nunca se hereda).
+     * Preservación corporativa: `company`, `companyId`, `companySlug`,
+       `companyDepartment`, `companyRoleStatement`, `themeKey`, colores corporativos,
+       soluciones corporativas, enlaces institucionales y modalidad operativa.
+
+3. Independencia Estructural Absoluta entre Original y Copia:
+   - Función `deepClone` (vía `structuredClone` nativo o serialización JSON segura).
+   - Todos los objetos y arrays anidados (`solutions`, `processSteps`, `networkingTargets`,
+     `links`, `features`, `brandOverrides`, `primaryAction`, `customFields`, `seoKeywords`)
+     se clonan en profundidad.
+   - Modificar cualquier estructura en la copia no altera en lo absoluto el original.
+
+4. Aislamiento Total de CRM, Prospectos y Estadísticas:
+   - Inicialización explícita del almacenamiento local de prospectos en vacío:
+     `tarjetas_leads_${newSlug} = '[]'`.
+   - `getLeadsForProfile(copy.publicId)` devuelve lista vacía `[]`, sin asociarse a
+     los prospectos confidenciales del titular original ni autosembrar datos demo.
+   - Las estadísticas y aperturas del titular original no se asocian a la copia.
+
+5. Recorrido Real de Creación y Guardado en Studio (`CompanyManagerView`):
+   - Conexión de `handleDuplicate` y `handleCreateFromTemplate` pasando `existingProfiles`.
+   - Persistencia en `localStorage['redconecta_cards_v1']`.
+   - Verificado que `deduplicateProfiles` de `App.tsx` conserva el 100% de los
+     perfiles duplicados y creados gracias a la garantía de slugs únicos.
+
+
+--------------------------------------------------------------------------------
+2. RESULTADOS DE VERIFICACIÓN AUTOMATIZADA DEL BLOQUE 1
+--------------------------------------------------------------------------------
+Suite: `scripts/verify-cierre-bloque1.ts`
+- 60 / 60 pruebas APROBADAS (100% de éxito).
+  * 8 pruebas de unicidad, colisión y palabras reservadas.
+  * 4 pruebas de concurrencia y generación simultánea en el mismo milisegundo (100 duplicaciones + 100 plantillas).
+  * 33 pruebas de allowlist, vaciado de datos privados y preservación corporativa.
+  * 7 pruebas de mutación profunda e independencia estructural.
+  * 3 pruebas de aislamiento de CRM, leads confidenciales y telemetría.
+  * 5 pruebas de guardado real en UI, persistencia y deduplicación.
+
+Suites de regresión verificadas:
+- UX08 (`scripts/verify-ux08.ts`): 60 / 60 pruebas aprobadas.
+- UX07 (`scripts/verify-ux07.ts`): 47 / 47 pruebas aprobadas.
+- UX06 (`scripts/verify-ux06.ts`): 67 / 67 pruebas aprobadas.
+- UX05 (`scripts/verify-ux05.ts`): 48 / 48 pruebas aprobadas.
+- Build de producción (`npm run build`): 0 errores de TypeScript, 19 micrositios pre-renderizados en 329ms.
+
+
+--------------------------------------------------------------------------------
+3. REGISTRO CONSOLIDADO DE PENDIENTES ABIERTOS (SIGUIENTES BLOQUES)
+--------------------------------------------------------------------------------
+
+[BLOQUE ABIERTO A: PERSISTENCIA DE EDICIONES DEMO EN STUDIO]
+- Estado: ABIERTO.
+- Descripción: Al editar una tarjeta de demostración (ej. `demo-clara-navarro`) desde
+  el Studio de la agencia, si se recarga el navegador, el estado en memoria puede
+  restablecerse al fixture estático si `INITIAL_PROFILES` tiene prioridad sobre la
+  clave `redconecta_cards_v1` en `localStorage`.
+- Evidencia: Inspección de `App.tsx` (efecto de sincronización inicial).
+- Alcance para siguiente bloque: Sincronizar limpiamente las modificaciones de perfiles
+  demo en el almacenamiento local para que persistan entre recargas de página.
+
+[BLOQUE ABIERTO B: COHERENCIA DE MARCA Y PALETAS DE COLOR]
+- Estado: ABIERTO.
+- Descripción: Armonización de contraste en botones según tema (`ejecutivo`, `negocio`,
+  `personal`), sincronización de colores de acento al editar la marca corporativa en
+  cascada y verificación de contraste WCAG AA en pastillas de rol y botones de acción.
+- Evidencia: Verificación visual en `CompanyManagerView` y `DigitalCard`.
+- Alcance para siguiente bloque: Reglas de derivación de contraste y actualización
+  automática de tarjetas hijas no exceptuadas ante cambios de color corporativo.
+
+[BLOQUE ABIERTO C: VERIFICACIÓN EDITORIAL Y TEXTOS INSTITUCIONALES]
+- Estado: ABIERTO.
+- Descripción: Descripciones extensas en soluciones del arquetipo `institucional_publico`
+  y textos predeterminados de vinculación requieren ajuste de extensión y saltos de
+  línea en pantallas estrechas (320px).
+- Evidencia: Reportes de revisión editorial de UX05/UX06.
+- Alcance para siguiente bloque: Truncamiento controlado con "Ver más" o condensación
+  editorial de las plantillas de redacción institucional.
+
+[BLOQUE ABIERTO D: EXPORTACIÓN HTML Y URLs RELATIVAS (UX05)]
+- Estado: ABIERTO.
+- Descripción: El generador de exportación estática HTML (`src/utils/exportHtml.ts`)
+  asume rutas absolutas `/c/...` o recursos servidos en la raíz del dominio web.
+  Si el archivo se abre localmente mediante protocolo `file:///` o dentro de un
+  subdirectorio de hosting, los assets relativos y enlaces internos pueden romperse.
+- Evidencia: Reporte de revisión de UX05 (`CHANGES_UX05.diff`).
+- Alcance para siguiente bloque: Parámetro configurable de `baseUrl` (relativa `./`
+  vs absoluta `/`) en `exportHtml.ts`.
+
+[BLOQUE ABIERTO E: CINCO PROBLEMAS DOCUMENTADOS DE INSTRUMENTACIÓN (UX07)]
+- Estado: ABIERTO.
+- Descripción y Evidencia técnica:
+  1. Distorsión por visitas propias o del operador: Aperturas registradas por el
+     propio titular al ingresar al simulador o al panel `/stats` suman como vistas.
+  2. Atribución engañosa de código QR: Abrir el modal de QR en pantalla suma un evento
+     que no demuestra que un tercero haya escaneado físicamente la tarjeta con su cámara.
+  3. Tiempos de retención y rebote: La telemetría cuenta cargas de página pero no
+     diferencia lecturas de rebote (< 2 seg) de lecturas completas (> 30 seg).
+  4. Agregación temporal histórica: Almacenamiento puramente acumulado en cliente;
+     carece de serie temporal por día/semana para análisis de tendencias.
+  5. Sincronización multi-dispositivo de métricas: Las estadísticas registradas en un
+     teléfono no se consolidan con las registradas en una computadora de escritorio
+     sin base de datos analítica centralizada.
+- Alcance para siguiente bloque: Filtros de exclusión de sesiones autenticadas del
+  operador y discriminador explícito de interacción QR.
+
+[BLOQUE APLAZADO F: CIERRE TÉCNICO UX03B (POR DECISIÓN DEL USUARIO)]
+- Estado: APLAZADA FORMALMENTE.
+- Descripción: Persistencia remota en Cloud Firestore, autenticación basada en PIN /
+  Firebase Auth con credenciales remotas, cola offline en segundo plano con IndexedDB
+  y endurecimiento de reglas de seguridad (`firestore.rules`).
+- Política: Se conserva sin cambios en local hasta la autorización expresa del usuario.
+================================================================================
+

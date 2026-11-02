@@ -1,0 +1,58 @@
+================================================================================
+MANIFIESTO DE CAPTURAS HEADLESS CHROME — FASE UX07
+TARJETAS DIGITALES INTELIGENTES • TRIBU CREATIVA QRO / REDCONECTA MX
+================================================================================
+Fecha: 2026-11-02T04:07:34.532Z
+Herramienta: Google Chrome Headless via Chrome DevTools Protocol (CDP)
+
+[Captura 1] ux07-panel-datos-demo.png
+  - Perfil: demo-clara-navarro
+  - Viewport CSS: 480x980
+  - Tamaño: 221.7 KB
+  - Descripción: Panel de métricas honestas y actividad claramente etiquetado como Demostración Sintética
+  - Aserciones Satisfechas:
+      * Insignia "Demostración Sintética" visible y verificada
+      * Tarjetas métricas honestas verificadas: Aperturas, Descargas, WhatsApp, Acciones / 100 Vistas
+      * Cálculo fiel de acciones por cada 100 vistas sin ROI monetario falso
+
+[Captura 2] ux07-buzon-movil-fila.png
+  - Perfil: demo-clara-navarro
+  - Viewport CSS: 390x844
+  - Tamaño: 189.6 KB
+  - Descripción: Buzón móvil con barra compacta de alertas y fila completa con próximo paso y resultado
+  - Aserciones Satisfechas:
+      * Buzón móvil 390px con fila completa visible
+      * Contacto con próximo paso e insignia de resultado identificado
+      * Botón "Sin paso" visible sin truncamiento en barra compacta de alertas
+
+[Captura 3] ux07-resultados-registrados.png
+  - Perfil: demo-clara-navarro
+  - Viewport CSS: 480x900
+  - Tamaño: 191.7 KB
+  - Descripción: Sección Resultados Registrados con chips de conteo por tipo adaptados al arquetipo
+  - Aserciones Satisfechas:
+      * Sección "Resultados Registrados" visible con encabezado veraz
+      * Chips de conteo por tipo adaptados al arquetipo profesional
+      * Cifras de resultados independientes de las etapas del embudo comercial
+
+[Captura 4] ux07-estado-sin-datos.png
+  - Perfil: demo-diego-salas
+  - Viewport CSS: 480x980
+  - Tamaño: 215.7 KB
+  - Descripción: Estado sin datos registrados: 0 aperturas, 0 QR, ratio — y badge Sin datos registrados
+  - Aserciones Satisfechas:
+      * Distintivo "Sin datos registrados" verificado en estado cero
+      * 0 aperturas, 0 QR y ratio de acciones como "—" (sin división entre cero)
+      * Lista deliberadamente vacía [] respetada sin repoblación automática
+
+[Captura 5] ux07-plan-basico-sin-audios.png
+  - Perfil: demo-jorge-herrera
+  - Viewport CSS: 1024x800
+  - Tamaño: 257.3 KB
+  - Descripción: Vista de escritorio en plan básico sin insignia AI Copilot ni pestañas/módulos de audio
+  - Aserciones Satisfechas:
+      * Perfil en plan básico (hasMeetingIntelligence: false) resuelto
+      * Ausencia verificada en el DOM de insignia "AI Copilot"
+      * Ausencia verificada en el DOM de pestañas de Meeting Intelligence y grabadores de audio
+
+================================================================================
