@@ -2038,11 +2038,11 @@ export const DigitalCard: React.FC<DigitalCardProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenAdminAccess && onOpenAdminAccess()}
-                className="py-1.5 px-2 rounded-xl bg-white hover:bg-stone-50 text-stone-800 text-[11px] font-bold shadow-2xs border border-stone-200/80 flex items-center justify-center gap-1 cursor-pointer transition-transform active:scale-95"
-                title={lang === 'en' ? 'Card management access' : 'Acceso a gestión y edición'}
+                className="py-1.5 px-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-[#00685f] text-[11px] font-bold shadow-2xs border border-teal-200/80 flex items-center justify-center gap-1 cursor-pointer transition-transform active:scale-95"
+                title={lang === 'en' ? 'Open Mini-CRM & prospects' : 'Abrir Buzón de Prospectos, Citas y Mini-CRM'}
               >
-                <Lock className="w-3.5 h-3.5 text-[#00685f]" />
-                <span>{lang === 'en' ? 'PIN Access' : 'Acceso PIN'}</span>
+                <Users className="w-3.5 h-3.5 text-[#00685f]" />
+                <span>{lang === 'en' ? 'CRM & Leads' : 'Buzón CRM'}</span>
               </button>
             </div>
           )}

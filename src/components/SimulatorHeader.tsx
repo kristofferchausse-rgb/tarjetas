@@ -17,7 +17,8 @@ import {
   Search,
   Check,
   Edit3,
-  UserCheck
+  UserCheck,
+  Users
 } from 'lucide-react';
 
 interface SimulatorHeaderProps {
@@ -38,6 +39,7 @@ interface SimulatorHeaderProps {
   currentIndex?: number;
   onSelectProfile?: (index: number) => void;
   onOpenEditProfile?: () => void;
+  onOpenClientStats?: () => void;
 }
 
 export const SimulatorHeader: React.FC<SimulatorHeaderProps> = ({
@@ -57,7 +59,8 @@ export const SimulatorHeader: React.FC<SimulatorHeaderProps> = ({
   profiles,
   currentIndex = 0,
   onSelectProfile,
-  onOpenEditProfile
+  onOpenEditProfile,
+  onOpenClientStats
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
@@ -170,6 +173,17 @@ export const SimulatorHeader: React.FC<SimulatorHeaderProps> = ({
                 Admin
               </span>
             </button>
+
+            {onOpenClientStats && (
+              <button
+                onClick={onOpenClientStats}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-stone-600 hover:text-stone-900"
+                title="Abrir Buzón de Prospectos, Citas y Seguimiento (Mini-CRM)"
+              >
+                <Users className="w-3.5 h-3.5 text-[#00685f]" />
+                <span>Mini-CRM</span>
+              </button>
+            )}
           </div>
 
           {/* High Volume UX: Fast Card Switcher in Header (when in simulator mode) */}
@@ -313,6 +327,18 @@ export const SimulatorHeader: React.FC<SimulatorHeaderProps> = ({
           >
             <QrCode className="w-4 h-4 text-stone-700" />
           </button>
+
+          {/* Direct Mini-CRM & Prospects Trigger */}
+          {onOpenClientStats && (
+            <button
+              onClick={onOpenClientStats}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-[#00685f] text-xs font-bold shadow-2xs active:scale-95 transition-all cursor-pointer"
+              title="Abrir Buzón de Prospectos, Citas y Seguimiento del Titular"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Prospectos CRM</span>
+            </button>
+          )}
 
           {/* Primary Business CTA: Entregar al Cliente */}
           {onOpenDelivery && (

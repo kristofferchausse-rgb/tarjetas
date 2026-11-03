@@ -1025,6 +1025,10 @@ export default function App() {
           }}
           onUpdateProfileFeatures={handleUpdateProfileFeatures}
           onUpdateProfiles={setProfiles}
+          onOpenClientStats={(pubId) => {
+            const target = profiles.find((p) => p.publicId === pubId) || currentProfile;
+            handleRequestClientAuth(target);
+          }}
           onOpenCompanyDirectory={(companySlug) => {
             const comp = getCompanyBySlug(companySlug);
             if (comp) {
@@ -1426,6 +1430,7 @@ export default function App() {
         currentIndex={currentIndex}
         onSelectProfile={handleSelectProfile}
         onOpenEditProfile={() => setIsEditOpen(true)}
+        onOpenClientStats={() => handleRequestClientAuth(currentProfile)}
       />
 
       {/* Main Workspace Layout */}

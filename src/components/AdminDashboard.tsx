@@ -70,6 +70,7 @@ interface AdminDashboardProps {
   onOpenOnboardingWizard?: () => void;
   onUpdateProfiles?: (updater: (prev: ParticipantProfile[]) => ParticipantProfile[]) => void;
   onOpenCompanyDirectory?: (slug: string) => void;
+  onOpenClientStats?: (publicId: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -90,7 +91,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateProfileFeatures,
   onOpenOnboardingWizard,
   onUpdateProfiles,
-  onOpenCompanyDirectory
+  onOpenCompanyDirectory,
+  onOpenClientStats
 }) => {
   const [profileToDelete, setProfileToDelete] = useState<ParticipantProfile | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -1048,6 +1050,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {/* Quick Actions */}
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {onOpenClientStats && (
+                            <button
+                              onClick={() => onOpenClientStats(p.publicId)}
+                              className="p-1.5 rounded-lg hover:bg-teal-50 text-stone-600 hover:text-[#00685f] transition-colors cursor-pointer"
+                              title="Abrir Mini-CRM, Citas y Prospectos de este titular"
+                            >
+                              <Users className="w-3.5 h-3.5 text-[#00685f]" />
+                            </button>
+                          )}
                           {onOpenDelivery && (
                             <button
                               onClick={() => onOpenDelivery(p.publicId)}
