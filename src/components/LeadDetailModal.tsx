@@ -618,6 +618,19 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     Sugerencias rápidas para tu actividad:
                   </label>
                   <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionTitleDraft(`Cita: ${terminology.actionSuggestions[0] || 'Reunión de presentación'}`);
+                        setActionDateDraft(todayStr);
+                        setActionTimeDraft('10:00');
+                        setIsActionDirty(true);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-[10px] font-bold transition-all text-left cursor-pointer flex items-center gap-1"
+                    >
+                      <Calendar className="w-3 h-3 text-purple-600" />
+                      <span>📅 Agendar Cita</span>
+                    </button>
                     {terminology.actionSuggestions.map((sugg, idx) => (
                       <button
                         key={idx}

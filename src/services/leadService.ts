@@ -1557,3 +1557,142 @@ export async function deleteLead(publicId: string, leadId: string): Promise<bool
     return false;
   }
 }
+
+export interface AddManualLeadPayload {
+  name: string;
+  phone: string;
+  email?: string;
+  company?: string;
+  role?: string;
+  message?: string;
+  status?: CapturedLead['status'];
+  notes?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  nextActionTime?: string;
+  outcome?: LeadOutcome;
+}
+
+export interface AddManualLeadResult {
+  success: boolean;
+  lead?: CapturedLead;
+  error?: string;
+  isLocalOnly: boolean;
+}
+
+/**
+ * Manually adds a lead / contact to the CRM directly from the titular dashboard.
+ * - Stores reliably in local storage first.
+ * - Synchronizes with Firestore if connected and not a demo profile.
+ * - Supports setting status, notes, appointments, next actions, and outcomes.
+ */
+export async function addManualLead(
+  publicId: string,
+  payload: AddManualLeadPayload
+): Promise<AddManualLeadResult> {
+  const cleanId = (publicId || '').trim().toLowerCase();
+  const cleanName = (payload.name || '').trim();
+  const cleanPhone = (payload.phone || '').trim();
+
+  if (!cleanName) {
+    return {
+      success: false,
+      isLocalOnly: true,
+      error: 'El nombre del prospecto es obligatorio.'
+    };
+  }
+  if (!cleanPhone) {
+    return {
+      success: false,
+      isLocalOnly: true,
+      error: 'El teléfono o WhatsApp es obligatorio para el seguimiento.'
+    };
+  }
+
+  const id = `lead_manual_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+
+  const newLead: CapturedLead = {
+    id,
+    publicId: cleanId,
+    name: cleanName,
+    phone: cleanPhone,
+    email: (payload.email || '').trim() || undefined,
+    company: (payload.company || '').trim() || undefined,
+    role: (payload.role || '').trim() || undefined,
+    message: (payload.message || '').trim() || 'Contacto agregado manualmente',
+    timestamp: now,
+    status: payload.status || 'nuevo',
+    notes: (payload.notes || '').trim() || undefined,
+    nextAction: payload.nextAction ? payload.nextAction.trim() : undefined,
+    nextActionDate: payload.nextActionDate ? payload.nextActionDate.trim() : undefined,
+    nextActionTime: payload.nextActionTime ? payload.nextActionTime.trim() : undefined,
+    nextActionCompleted: false,
+    outcome: payload.outcome || undefined,
+    source: 'general',
+    syncStatus: 'pending',
+    localSavedAt: now
+  };
+
+  // 1. Local storage durable save (pre-pended so newest appears first)
+  const local = getLocalLeads(cleanId);
+  const updatedLocal = [newLead, ...local];
+  const saved = saveLocalLeads(cleanId, updatedLocal);
+
+  if (!saved) {
+    return {
+      success: false,
+      isLocalOnly: true,
+      error: 'Error al persistir el contacto en el almacenamiento local del dispositivo.'
+    };
+  }
+
+  // 2. Remote Firestore sync if online and non-demo profile
+  const isDemo = cleanId.startsWith('demo-');
+  if (!isDemo && db) {
+    try {
+      const docRef = doc(db, COLLECTION_NAME, id);
+      const firestoreData: Record<string, any> = {
+        id,
+        publicId: cleanId,
+        name: newLead.name,
+        phone: newLead.phone,
+        message: newLead.message,
+        timestamp: newLead.timestamp,
+        status: newLead.status,
+        source: newLead.source,
+        syncStatus: 'confirmed'
+      };
+      if (newLead.email) firestoreData.email = newLead.email;
+      if (newLead.company) firestoreData.company = newLead.company;
+      if (newLead.role) firestoreData.role = newLead.role;
+      if (newLead.notes) firestoreData.notes = newLead.notes;
+      if (newLead.nextAction) firestoreData.nextAction = newLead.nextAction;
+      if (newLead.nextActionDate) firestoreData.nextActionDate = newLead.nextActionDate;
+      if (newLead.nextActionTime) firestoreData.nextActionTime = newLead.nextActionTime;
+      if (newLead.outcome) firestoreData.outcome = newLead.outcome;
+
+      await setDoc(docRef, firestoreData);
+      newLead.syncStatus = 'confirmed';
+
+      // Update local storage with confirmed status
+      const confirmedLocal = [newLead, ...local];
+      saveLocalLeads(cleanId, confirmedLocal);
+
+      return {
+        success: true,
+        lead: newLead,
+        isLocalOnly: false
+      };
+    } catch (err) {
+      console.warn('[LeadService] Remote Firestore save failed; saved locally in device:', err);
+    }
+  }
+
+  return {
+    success: true,
+    lead: newLead,
+    isLocalOnly: true
+  };
+}
+

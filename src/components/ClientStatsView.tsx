@@ -8,6 +8,8 @@ import {
   updateLeadFollowUp,
   deleteLead,
   seedMockLeads,
+  addManualLead,
+  AddManualLeadPayload,
   UpdateLeadFollowUpPayload
 } from '../services/leadService';
 import {
@@ -19,6 +21,7 @@ import {
 import { WallpaperModal } from './WallpaperModal';
 import { EmailSignatureModal } from './EmailSignatureModal';
 import { LeadDetailModal } from './LeadDetailModal';
+import { AddLeadModal } from './AddLeadModal';
 import {
   Eye,
   Download,
@@ -36,6 +39,7 @@ import {
   Phone,
   Briefcase,
   Users,
+  UserPlus,
   Send,
   FileCheck,
   Lock,
@@ -69,7 +73,7 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
   onLockSession
 }) => {
   const [leads, setLeads] = useState<CapturedLead[]>([]);
-  const [quickFilter, setQuickFilter] = useState<'todos' | 'hoy' | 'vencidos' | 'sin_proximo_paso'>('todos');
+  const [quickFilter, setQuickFilter] = useState<'todos' | 'hoy' | 'vencidos' | 'citas' | 'sin_proximo_paso'>('todos');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'nuevo' | 'contactado' | 'reunion' | 'cerrado' | 'descartado'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingLeads, setIsLoadingLeads] = useState(true);
@@ -77,6 +81,9 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
   const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<CapturedLead | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalMode, setAddModalMode] = useState<'lead' | 'appointment'>('lead');
+  const [preselectedLeadForAppointment, setPreselectedLeadForAppointment] = useState<CapturedLead | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const terminology = getArchetypeTerminology(profile);
@@ -206,11 +213,60 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
     }
   };
 
+  const handleAddLead = async (payload: AddManualLeadPayload): Promise<boolean> => {
+    const res = await addManualLead(profile.publicId, payload);
+    if (res.success && res.lead) {
+      setLeads((prev) => [res.lead!, ...prev.filter((l) => l.id !== res.lead!.id)]);
+      return true;
+    }
+    return false;
+  };
+
+  const handleScheduleAppointment = async (
+    leadId: string,
+    appointmentData: { title: string; date: string; time?: string; notes?: string }
+  ): Promise<boolean> => {
+    const res = await updateLeadFollowUp(profile.publicId, leadId, {
+      status: 'reunion',
+      nextAction: appointmentData.title,
+      nextActionDate: appointmentData.date,
+      nextActionTime: appointmentData.time || null,
+      nextActionCompleted: false,
+      outcome: {
+        type: 'cita_confirmada',
+        registeredAt: appointmentData.date,
+        label: appointmentData.title,
+        note: appointmentData.notes
+      }
+    });
+    if (res.success && res.lead) {
+      setLeads((prev) => prev.map((l) => (l.id === leadId ? res.lead! : l)));
+      if (selectedLeadForDetail?.id === leadId) {
+        setSelectedLeadForDetail(res.lead);
+      }
+      return true;
+    }
+    return false;
+  };
+
   const counts = useMemo(() => {
     return {
       todos: leads.length,
       hoy: leads.filter((l) => getLeadActionTiming(l, todayStr) === 'hoy').length,
       vencidos: leads.filter((l) => getLeadActionTiming(l, todayStr) === 'vencido').length,
+      citas: leads.filter(
+        (l) =>
+          l.status === 'reunion' ||
+          l.outcome?.type === 'cita_confirmada' ||
+          Boolean(
+            l.nextAction &&
+              (l.nextAction.toLowerCase().includes('cita') ||
+                l.nextAction.toLowerCase().includes('reuni') ||
+                l.nextAction.startsWith('📍') ||
+                l.nextAction.startsWith('📹') ||
+                l.nextAction.startsWith('📞'))
+          )
+      ).length,
       sin_proximo_paso: leads.filter(
         (l) => !l.nextAction || !l.nextAction.trim() || l.nextActionCompleted
       ).length
@@ -247,6 +303,19 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
         if (getLeadActionTiming(l, todayStr) !== 'hoy') return false;
       } else if (quickFilter === 'vencidos') {
         if (getLeadActionTiming(l, todayStr) !== 'vencido') return false;
+      } else if (quickFilter === 'citas') {
+        const isCita =
+          l.status === 'reunion' ||
+          l.outcome?.type === 'cita_confirmada' ||
+          Boolean(
+            l.nextAction &&
+              (l.nextAction.toLowerCase().includes('cita') ||
+                l.nextAction.toLowerCase().includes('reuni') ||
+                l.nextAction.startsWith('📍') ||
+                l.nextAction.startsWith('📹') ||
+                l.nextAction.startsWith('📞'))
+          );
+        if (!isCita) return false;
       } else if (quickFilter === 'sin_proximo_paso') {
         const hasActiveAction = Boolean(l.nextAction && l.nextAction.trim() && !l.nextActionCompleted);
         if (hasActiveAction) return false;
@@ -371,11 +440,11 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
         ) : (
           <>
             {/* 1. Quick Follow-up Summary Bar */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setQuickFilter('vencidos')}
-                className={`p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
+                className={`p-1.5 sm:p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
                   quickFilter === 'vencidos'
                     ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
                     : counts.vencidos > 0
@@ -393,15 +462,15 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                         : 'text-stone-400'
                     }`}
                   />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Vencidos</span>
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap">Vencidos</span>
                 </div>
-                <p className="text-lg font-black leading-none">{counts.vencidos}</p>
+                <p className="text-base sm:text-lg font-black leading-none">{counts.vencidos}</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setQuickFilter('hoy')}
-                className={`p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
+                className={`p-1.5 sm:p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
                   quickFilter === 'hoy'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
                     : counts.hoy > 0
@@ -419,33 +488,59 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                         : 'text-stone-400'
                     }`}
                   />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Hoy</span>
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap">Hoy</span>
                 </div>
-                <p className="text-lg font-black leading-none">{counts.hoy}</p>
+                <p className="text-base sm:text-lg font-black leading-none">{counts.hoy}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuickFilter('citas')}
+                className={`p-1.5 sm:p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
+                  quickFilter === 'citas'
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                    : counts.citas > 0
+                    ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200'
+                    : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 mb-0.5">
+                  <Calendar
+                    className={`w-3.5 h-3.5 ${
+                      quickFilter === 'citas'
+                        ? 'text-white'
+                        : counts.citas > 0
+                        ? 'text-purple-600'
+                        : 'text-stone-400'
+                    }`}
+                  />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap">Citas</span>
+                </div>
+                <p className="text-base sm:text-lg font-black leading-none">{counts.citas}</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setQuickFilter('sin_proximo_paso')}
-                className={`p-2 sm:p-2.5 px-1 sm:px-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
+                className={`p-1.5 sm:p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
                   quickFilter === 'sin_proximo_paso'
                     ? 'bg-stone-800 text-white border-stone-800 shadow-xs'
                     : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
                 }`}
               >
                 <div className="flex items-center justify-center gap-1 mb-0.5">
-                  <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                  <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
+                  <Clock className="w-3.5 h-3.5 text-stone-400" />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap">
                     Sin paso
                   </span>
                 </div>
-                <p className="text-lg font-black leading-none">{counts.sin_proximo_paso}</p>
+                <p className="text-base sm:text-lg font-black leading-none">{counts.sin_proximo_paso}</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setQuickFilter('todos')}
-                className={`p-2 sm:p-2.5 px-1 sm:px-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
+                className={`p-1.5 sm:p-2.5 rounded-2xl border transition-all text-center cursor-pointer ${
                   quickFilter === 'todos'
                     ? 'bg-[#00685f] text-white border-[#00685f] shadow-xs'
                     : 'bg-white hover:bg-stone-50 text-stone-600 border-stone-200'
@@ -453,15 +548,15 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
               >
                 <div className="flex items-center justify-center gap-1 mb-0.5">
                   <Users className="w-3.5 h-3.5 text-[#00685f]" />
-                  <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">Todos</span>
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap">Todos</span>
                 </div>
-                <p className="text-lg font-black leading-none">{counts.todos}</p>
+                <p className="text-base sm:text-lg font-black leading-none">{counts.todos}</p>
               </button>
             </div>
 
             {/* 2. SECTION: Mini-CRM Leads Inbox */}
             <div className="bg-white rounded-3xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
-              {/* Header & Demo action */}
+              {/* Header & Primary Actions */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-xl bg-teal-100 text-[#00685f] flex items-center justify-center font-bold text-xs">
@@ -485,6 +580,37 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                     </div>
                     <p className="text-[10px] text-stone-400">{terminology.categoryLabel}</p>
                   </div>
+                </div>
+
+                {/* Primary Add Actions */}
+                <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreselectedLeadForAppointment(null);
+                      setAddModalMode('lead');
+                      setIsAddModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    title="Agregar un contacto manualmente al CRM"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Prospecto</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreselectedLeadForAppointment(null);
+                      setAddModalMode('appointment');
+                      setIsAddModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    title="Agendar una cita con fecha y hora en el calendario"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>+ Agendar Cita</span>
+                  </button>
                 </div>
               </div>
 
@@ -550,6 +676,26 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                     }`}
                   >
                     {counts.hoy}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter('citas')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    quickFilter === 'citas'
+                      ? 'bg-purple-600 text-white shadow-2xs'
+                      : 'bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Citas & Reuniones</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                      quickFilter === 'citas' ? 'bg-purple-700 text-white' : 'bg-purple-200 text-purple-900'
+                    }`}
+                  >
+                    {counts.citas}
                   </span>
                 </button>
 
@@ -651,13 +797,15 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                   Cargando prospectos...
                 </div>
               ) : filteredLeads.length === 0 ? (
-                <div className="p-6 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50 space-y-2">
+                <div className="p-6 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50 space-y-3">
                   <Users className="w-8 h-8 text-stone-300 mx-auto mb-1" />
                   <p className="text-xs font-bold text-stone-800">
                     {quickFilter === 'hoy'
                       ? 'No tienes tareas programadas para hoy'
                       : quickFilter === 'vencidos'
                       ? '¡Seguimiento al día! No tienes acciones vencidas'
+                      : quickFilter === 'citas'
+                      ? 'No tienes citas o reuniones programadas en esta vista'
                       : quickFilter === 'sin_proximo_paso'
                       ? 'Todos tus prospectos tienen un próximo paso o están concluidos'
                       : searchTerm.trim()
@@ -669,10 +817,38 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                       ? 'Revisa tus acciones en "Vencidos" o programa un siguiente paso para los contactos recientes.'
                       : quickFilter === 'vencidos'
                       ? 'Excelente organización. Puedes definir nuevos hitos en la pestaña "Todos".'
+                      : quickFilter === 'citas'
+                      ? 'Agendar citas te ayuda a formalizar compromisos y dar seguimiento puntual.'
                       : quickFilter === 'sin_proximo_paso'
                       ? 'Buen control de pipeline. Cuando recibas nuevos contactos, acuerda el siguiente paso.'
-                      : 'Comparte tu tarjeta digital para captar datos con contexto y dar seguimiento 1 a 1.'}
+                      : 'Puedes agregar prospectos manualmente aquí o captarlos a través de tu tarjeta digital.'}
                   </p>
+                  <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreselectedLeadForAppointment(null);
+                        setAddModalMode('lead');
+                        setIsAddModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00685f] hover:bg-[#00524b] text-white text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Agregar Prospecto</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreselectedLeadForAppointment(null);
+                        setAddModalMode('appointment');
+                        setIsAddModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>+ Agendar Cita</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -863,6 +1039,21 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1.5">
+                            {/* Schedule Appointment Quick Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPreselectedLeadForAppointment(lead);
+                                setAddModalMode('appointment');
+                                setIsAddModalOpen(true);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
+                              title="Agendar o reprogramar cita con este contacto"
+                            >
+                              <Calendar className="w-3 h-3 text-purple-600" />
+                              <span>Cita</span>
+                            </button>
+
                             {/* WhatsApp Follow-up Button */}
                             <a
                               href={generateWhatsAppFollowUpUrl(lead)}
@@ -1181,6 +1372,20 @@ export const ClientStatsView: React.FC<ClientStatsViewProps> = ({
         profile={profile}
         onUpdateLead={handleUpdateLead}
         onDeleteLead={handleDeleteLead}
+        onShowToast={showToast}
+      />
+      <AddLeadModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setPreselectedLeadForAppointment(null);
+        }}
+        profile={profile}
+        initialMode={addModalMode}
+        preselectedLead={preselectedLeadForAppointment}
+        existingLeads={leads}
+        onAddLead={handleAddLead}
+        onScheduleAppointment={handleScheduleAppointment}
         onShowToast={showToast}
       />
     </div>
