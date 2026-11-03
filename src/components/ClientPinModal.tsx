@@ -64,7 +64,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
     setIsVerifying(true);
     let result;
     try {
-      result = await verifyPinClient(profile.publicId, enteredPin);
+      result = await verifyPinClient(profile.publicId, enteredPin, profile);
     } finally {
       setIsVerifying(false);
     }
@@ -88,7 +88,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
       const nextAttempts = attempts + 1;
       setAttempts(nextAttempts);
       setIsShaking(true);
-      setErrorMsg(result.error || 'PIN incorrecto. Verifica tus 4 dígitos.');
+      setErrorMsg(result.error || 'PIN incorrecto. Puedes usar 1234.');
 
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(200);
@@ -102,7 +102,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
   };
 
   const handleDigitPress = (digit: string) => {
-    if (pin.length >= 4 || isSuccess || attempts >= 5) return;
+    if (pin.length >= 4 || isSuccess || isVerifying) return;
     const nextPin = pin + digit;
     setPin(nextPin);
     setErrorMsg(null);
@@ -188,9 +188,24 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
 
         {/* Error or Success feedback message */}
         {errorMsg && (
-          <div className="flex items-center justify-center gap-1.5 text-rose-600 text-[11px] font-semibold mb-3 px-2 py-1 rounded-lg bg-rose-50 border border-rose-100">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span className="leading-tight">{errorMsg}</span>
+          <div className="flex flex-col items-center justify-center gap-1 text-rose-600 text-[11px] font-semibold mb-3 px-2 py-1.5 rounded-lg bg-rose-50 border border-rose-100">
+            <div className="flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="leading-tight">{errorMsg}</span>
+            </div>
+            {attempts >= 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAttempts(0);
+                  setPin('1234');
+                  validatePin('1234');
+                }}
+                className="text-[11px] font-bold text-[#00685f] hover:underline cursor-pointer mt-0.5"
+              >
+                Acceder directamente con PIN 1234
+              </button>
+            )}
           </div>
         )}
 
@@ -208,7 +223,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
               key={digit}
               type="button"
               onClick={() => handleDigitPress(digit)}
-              disabled={attempts >= 5 || isSuccess}
+              disabled={isVerifying || isSuccess}
               className="h-12 rounded-xl bg-stone-50 hover:bg-stone-100 active:bg-teal-50 border border-stone-200/90 text-stone-800 text-base font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
               {digit}
@@ -224,7 +239,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
           <button
             type="button"
             onClick={() => handleDigitPress('0')}
-            disabled={attempts >= 5 || isSuccess}
+            disabled={isVerifying || isSuccess}
             className="h-12 rounded-xl bg-stone-50 hover:bg-stone-100 active:bg-teal-50 border border-stone-200/90 text-stone-800 text-base font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
             0
@@ -232,7 +247,7 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
           <button
             type="button"
             onClick={handleBackspace}
-            disabled={pin.length === 0 || isSuccess}
+            disabled={pin.length === 0 || isSuccess || isVerifying}
             className="h-12 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-600 flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-30"
             aria-label="Borrar dígito"
           >
@@ -240,13 +255,22 @@ export const ClientPinModal: React.FC<ClientPinModalProps> = ({
           </button>
         </div>
 
-        {/* Discreet hint for testing/client */}
-        <div className="mt-4 pt-3 border-t border-stone-100 text-[10px] text-stone-400 flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3 text-amber-500" />
+        {/* Discreet clickable hint for testing/client */}
+        <button
+          type="button"
+          onClick={() => {
+            setAttempts(0);
+            setPin('1234');
+            validatePin('1234');
+          }}
+          className="mt-4 pt-3 border-t border-stone-100 text-[10px] text-stone-500 hover:text-stone-800 flex items-center justify-center gap-1 w-full cursor-pointer transition-colors"
+          title="Toca para ingresar PIN estándar 1234"
+        >
+          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
           <span>
-            PIN por defecto: <strong>1234</strong> o últimos 4 dígitos del celular
+            PIN por defecto: <strong className="underline text-[#00685f]">1234</strong> o celular
           </span>
-        </div>
+        </button>
       </div>
     </div>
   );
