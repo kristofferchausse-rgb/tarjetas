@@ -31,8 +31,10 @@ import {
   FileText,
   Award,
   Trash2,
-  Plus
+  Plus,
+  ExternalLink
 } from 'lucide-react';
+import { generateGoogleCalendarUrl } from '../utils/calendarExport';
 
 interface LeadDetailModalProps {
   isOpen: boolean;
@@ -575,6 +577,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     <p className="text-xs font-bold text-stone-900 pt-0.5">
                       {lead.nextAction}
                     </p>
+
+                    {lead.nextActionDate && !lead.nextActionCompleted && (
+                      <div className="pt-1 flex items-center gap-2">
+                        <a
+                          href={generateGoogleCalendarUrl({
+                            title: `${lead.nextAction} - ${lead.name}`,
+                            date: lead.nextActionDate,
+                            time: lead.nextActionTime,
+                            description: `Cita con ${lead.name} (${lead.phone})\nEmpresa: ${lead.company || 'N/A'}\nNotas: ${lead.notes || 'Sin notas adicionales'}`
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-stone-100 text-stone-700 text-[10px] font-bold border border-stone-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Sincronizar y agendar en tu Google Calendar personal"
+                        >
+                          <ExternalLink className="w-3 h-3 text-[#00685f]" />
+                          <span>Añadir a Google Calendar</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   <button
